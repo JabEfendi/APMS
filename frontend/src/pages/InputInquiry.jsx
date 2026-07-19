@@ -20,6 +20,11 @@ function InputInquiry() {
   
   const [customers, setCustomers] = useState([])
   const [brands, setBrands] = useState([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitMessage, setSubmitMessage] = useState({
+    type: '',
+    text: ''
+  })
   const [masterCheck, setMasterCheck] = useState({
     loading: false,
     status: 'idle',
@@ -50,9 +55,8 @@ function InputInquiry() {
 
   const fetchBrands = async () => {
     try {
-      const response = await axios.get('/api/master-items')
-      const uniqueBrands = [...new Set(response.data.map(item => item.Brand).filter(Boolean))]
-      setBrands(uniqueBrands)
+      const response = await axios.get('/api/brands')
+      setBrands(response.data)
     } catch (err) {
       console.error('Error fetching brands:', err)
     }
@@ -67,14 +71,55 @@ function InputInquiry() {
   }
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    if (e?.preventDefault) {
+      e.preventDefault()
+    }
+
+    if (masterCheck.loading || isSubmitting) {
+      return
+    }
+
+    if (!formData.customer || !formData.brand || !formData.partNumber || !formData.partName) {
+      setSubmitMessage({
+        type: 'error',
+        text: 'Lengkapi Customer, Brand, Part Number, dan Part Name terlebih dahulu.'
+      })
+      return
+    }
+
+    if (masterCheck.status === 'idle' || masterCheck.status === 'error') {
+      setSubmitMessage({
+        type: 'error',
+        text: 'Lakukan cek master item terlebih dahulu sebelum melanjutkan proses.'
+      })
+      return
+    }
+
+    if (masterCheck.status === 'not_found') {
+      setSubmitMessage({
+        type: 'info',
+        text: 'Item tidak ditemukan di master. Sistem mengarahkan kamu ke Permintaan Item Baru.'
+      })
+      openNewItemRequest()
+      return
+    }
+
+    setIsSubmitting(true)
     try {
       // TODO: Submit to backend
       console.log('Form submitted:', formData)
-      alert('Inquiry saved successfully!')
+      setSubmitMessage({
+        type: 'success',
+        text: 'Inquiry siap diproses karena item sudah ditemukan di master.'
+      })
     } catch (err) {
       console.error('Error submitting form:', err)
-      alert('Error saving inquiry. Please try again.')
+      setSubmitMessage({
+        type: 'error',
+        text: 'Gagal memproses inquiry. Silakan coba lagi.'
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -180,6 +225,51 @@ function InputInquiry() {
     }
   }
 
+  const getSubmitButtonLabel = () => {
+    if (isSubmitting) {
+      return 'Memproses...'
+    }
+
+    if (masterCheck.status === 'not_found') {
+      return 'Lanjut ke Permintaan Item Baru'
+    }
+
+    if (masterCheck.status === 'found') {
+      return 'Simpan Inquiry'
+    }
+
+    return 'Cek Master Dulu'
+  }
+
+  const getSubmitButtonIcon = () => {
+    if (isSubmitting) {
+      return 'progress_activity'
+    }
+
+    if (masterCheck.status === 'not_found') {
+      return 'playlist_add'
+    }
+
+    if (masterCheck.status === 'found') {
+      return 'save'
+    }
+
+    return 'rule'
+  }
+
+  const getSubmitMessageClasses = () => {
+    switch (submitMessage.type) {
+      case 'success':
+        return 'border-green-200 bg-green-50 text-green-800'
+      case 'error':
+        return 'border-red-200 bg-red-50 text-red-800'
+      case 'info':
+        return 'border-blue-200 bg-blue-50 text-blue-800'
+      default:
+        return 'border-outline-variant bg-surface-container-low text-on-surface'
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <main className="p-8">
@@ -194,17 +284,30 @@ function InputInquiry() {
               </p>
             </div>
             <div className="flex gap-3">
-              <button className="px-6 py-2.5 rounded border border-primary text-primary font-label-md text-label-md hover:bg-primary/5 transition-colors">
+              <button
+                type="button"
+                onClick={() => navigate('/inquiries')}
+                className="px-6 py-2.5 rounded border border-primary text-primary font-label-md text-label-md hover:bg-primary/5 transition-colors"
+              >
                 Batal
               </button>
               <button 
+                type="button"
                 onClick={handleSubmit}
-                className="px-6 py-2.5 rounded bg-primary text-white font-label-md text-label-md shadow-lg shadow-primary/20 hover:bg-primary-container transition-all flex items-center gap-2"
+                disabled={masterCheck.loading || isSubmitting}
+                className="px-6 py-2.5 rounded bg-primary text-white font-label-md text-label-md shadow-lg shadow-primary/20 hover:bg-primary-container transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <span className="material-symbols-outlined text-[18px]">save</span> Simpan Inquiry
+                <span className={`material-symbols-outlined text-[18px] ${isSubmitting ? 'animate-spin' : ''}`}>{getSubmitButtonIcon()}</span>
+                {getSubmitButtonLabel()}
               </button>
             </div>
           </div>
+
+          {submitMessage.text && (
+            <div className={`mb-6 rounded-2xl border px-5 py-4 text-sm font-medium ${getSubmitMessageClasses()}`}>
+              {submitMessage.text}
+            </div>
+          )}
 
           {/* Main Form Card */}
           <div className="grid grid-cols-12 gap-8">
@@ -272,8 +375,8 @@ function InputInquiry() {
                       className="w-full border border-outline-variant px-4 py-2.5 rounded focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">Pilih Brand...</option>
-                      {brands.map((brand, idx) => (
-                        <option key={idx} value={brand}>{brand}</option>
+                      {brands.map((brand) => (
+                        <option key={brand.id || brand.name} value={brand.name}>{brand.name}</option>
                       ))}
                     </select>
                   </div>
@@ -560,14 +663,15 @@ function InputInquiry() {
                 <p className="font-bold text-error leading-none">{formData.urgency === 'urgent' ? 'Urgent' : 'Normal'}</p>
               </div>
             </div>
-            <div className="flex items-center gap-3 w-full md:w-auto">
-              <button className="flex-1 md:flex-none px-6 py-2 text-[13px] font-bold hover:bg-white/5 transition-all">Lihat Review</button>
-              <button 
-                onClick={handleSubmit}
-                className="flex-1 md:flex-none px-8 py-2 bg-primary-container text-white font-bold text-[13px] rounded transition-all active:scale-95 shadow-inner"
-              >
-                KONFIRMASI & PROSES
-              </button>
+            <div className="w-full md:w-auto rounded-lg bg-white/5 px-4 py-3 text-center md:text-right">
+              <p className="text-[11px] uppercase tracking-wider opacity-60">Aksi Utama</p>
+              <p className="text-sm font-semibold">
+                {masterCheck.status === 'not_found'
+                  ? 'Setelah item tidak ditemukan, tombol utama akan melanjutkan ke Permintaan Item Baru.'
+                  : masterCheck.status === 'found'
+                    ? 'Gunakan tombol utama di kanan atas untuk menyimpan inquiry yang item-nya sudah ada di master.'
+                    : 'Lakukan cek master item terlebih dahulu agar sistem tahu inquiry ini lanjut ke mana.'}
+              </p>
             </div>
           </div>
         </div>

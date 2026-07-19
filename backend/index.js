@@ -25,6 +25,44 @@ app.use(cors({
 }));
 app.use(express.json());
 
+const ensureBrandsTable = async () => {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS brands (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) UNIQUE NOT NULL,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+};
+
+const syncBrandsTable = async () => {
+    await ensureBrandsTable();
+
+    await pool.query(`
+        INSERT INTO brands (name)
+        SELECT DISTINCT brand_name
+        FROM (
+            SELECT BTRIM("Brand") AS brand_name
+            FROM "VENDOR_PRICE"
+            WHERE "Brand" IS NOT NULL
+
+            UNION
+
+            SELECT BTRIM("Brand") AS brand_name
+            FROM "DATA_INQUIRY"
+            WHERE "Brand" IS NOT NULL
+        ) AS source_brands
+        WHERE brand_name <> ''
+          AND UPPER(brand_name) <> 'NAN'
+          AND UPPER(brand_name) <> 'LEGEND'
+        ON CONFLICT (name) DO UPDATE
+        SET is_active = TRUE,
+            updated_at = CURRENT_TIMESTAMP
+    `);
+};
+
 // Helper function to get table name from slug
 const getTableName = (slug) => {
     const tableMap = {
@@ -176,6 +214,25 @@ app.get('/api/health', async (req, res) => {
             status: 'error',
             database: 'disconnected'
         });
+    }
+});
+
+// Brand master endpoint
+app.get('/api/brands', async (req, res) => {
+    try {
+        await syncBrandsTable();
+
+        const result = await pool.query(`
+            SELECT id, name
+            FROM brands
+            WHERE is_active = TRUE
+            ORDER BY name ASC
+        `);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -469,6 +526,15 @@ app.get('/api/:tableSlug', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+syncBrandsTable()
+    .then(() => {
+        console.log('Brand master synchronized');
+    })
+    .catch((err) => {
+        console.error('Failed to synchronize brand master:', err.message);
+    })
+    .finally(() => {
+        app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+    });

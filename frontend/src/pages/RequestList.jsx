@@ -8,6 +8,7 @@ function RequestList() {
   const [requests, setRequests] = useState([])
   const [allRequests, setAllRequests] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
@@ -20,69 +21,20 @@ function RequestList() {
 
   const loadRequests = async () => {
     try {
+      setError('')
       const result = await axios.get('/api/requests', {
         params: { page, limit: 15 }
       })
-      if (result.data.data.length > 0) {
-        setRequests(result.data.data)
-        setTotal(result.data.total)
-        setTotalPages(result.data.totalPages)
-      } else {
-        // Fallback to dummy data if API returns empty
-        const dummyRequests = [
-          {
-            id: 1,
-            request_number: 'REQ-8821',
-            part_no: 'P-990-21-XYZ',
-            part_name: 'Brake Pad Front',
-            brand: 'Toyota',
-            model: 'Innova',
-            status: 'validation',
-            created_at: '2023-11-20T10:30:00Z'
-          },
-          {
-            id: 2,
-            request_number: 'REQ-8822',
-            part_no: 'P-880-AB-21',
-            part_name: 'Oil Filter',
-            brand: 'Mitsubishi',
-            model: 'Pajero',
-            status: 'approval',
-            created_at: '2023-11-19T14:20:00Z'
-          }
-        ]
-        setRequests(dummyRequests)
-        setTotal(dummyRequests.length)
-        setTotalPages(1)
-      }
+      const rows = Array.isArray(result.data?.data) ? result.data.data : []
+      setRequests(rows)
+      setTotal(result.data?.total || 0)
+      setTotalPages(result.data?.totalPages || 0)
     } catch (err) {
       console.error(err)
-      // Fallback to dummy data on error
-      const dummyRequests = [
-        {
-          id: 1,
-          request_number: 'REQ-8821',
-          part_no: 'P-990-21-XYZ',
-          part_name: 'Brake Pad Front',
-          brand: 'Toyota',
-          model: 'Innova',
-          status: 'validation',
-          created_at: '2023-11-20T10:30:00Z'
-        },
-        {
-          id: 2,
-          request_number: 'REQ-8822',
-          part_no: 'P-880-AB-21',
-          part_name: 'Oil Filter',
-          brand: 'Mitsubishi',
-          model: 'Pajero',
-          status: 'approval',
-          created_at: '2023-11-19T14:20:00Z'
-        }
-      ]
-      setRequests(dummyRequests)
-      setTotal(dummyRequests.length)
-      setTotalPages(1)
+      setRequests([])
+      setTotal(0)
+      setTotalPages(0)
+      setError('Gagal memuat data request. Pastikan backend aktif dan database dapat diakses.')
     } finally {
       setLoading(false)
     }
@@ -93,35 +45,10 @@ function RequestList() {
       const result = await axios.get('/api/requests', {
         params: { limit: 10000 }
       })
-      if (result.data.data.length > 0) {
-        setAllRequests(result.data.data)
-      } else {
-        const dummyRequests = [
-          {
-            id: 1,
-            request_number: 'REQ-8821',
-            part_no: 'P-990-21-XYZ',
-            part_name: 'Brake Pad Front',
-            brand: 'Toyota',
-            model: 'Innova',
-            status: 'validation',
-            created_at: '2023-11-20T10:30:00Z'
-          },
-          {
-            id: 2,
-            request_number: 'REQ-8822',
-            part_no: 'P-880-AB-21',
-            part_name: 'Oil Filter',
-            brand: 'Mitsubishi',
-            model: 'Pajero',
-            status: 'approval',
-            created_at: '2023-11-19T14:20:00Z'
-          }
-        ]
-        setAllRequests(dummyRequests)
-      }
+      setAllRequests(Array.isArray(result.data?.data) ? result.data.data : [])
     } catch (err) {
       console.error(err)
+      setAllRequests([])
     }
   }
 
@@ -187,7 +114,7 @@ function RequestList() {
         <div>
           <h2 className="font-headline-xl text-headline-xl text-primary">Monitoring Permintaan Item Baru</h2>
           <p className="mt-1 text-sm text-on-surface-variant">
-            Halaman ini fokus untuk memantau status, validasi, dan approval. Pembuatan request baru dilakukan dari `Input Inquiry` ketika item tidak ditemukan di master.
+            Halaman ini fokus untuk memantau status, validasi, dan approval. Data akan masuk ke sini setelah user membuat `Permintaan Item Baru`, bukan hanya menyimpan inquiry.
           </p>
         </div>
         <Link
@@ -223,82 +150,98 @@ function RequestList() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse font-data-table text-data-table">
-            <thead>
-              <tr className="bg-surface-container-low text-on-surface-variant border-b border-outline-variant">
-                <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Request No</th>
-                <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Part No</th>
-                <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Part Name</th>
-                <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Brand</th>
-                <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Status</th>
-                <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Tanggal</th>
-                <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant">
-              {requests.map((request) => (
-                <tr key={request.id} className="hover:bg-surface-container-low transition-colors">
-                  <td className="px-6 py-4 font-semibold text-primary">{request.request_number}</td>
-                  <td className="px-6 py-4 font-mono">{request.part_no || request.partNumber || '-'}</td>
-                  <td className="px-6 py-4">{request.part_name}</td>
-                  <td className="px-6 py-4">{request.brand}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getStatusColor(request.status)}`}>
-                      {request.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">{request.created_at ? new Date(request.created_at).toLocaleDateString('id-ID') : '-'}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <Link
-                        to={`/requests/${request.id}`}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-outline-variant text-label-md font-medium hover:bg-surface-container transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-sm">visibility</span>
-                        Detail
-                      </Link>
-                      
-                      {canValidate(request.status) && (
-                        <>
-                          <button
-                            onClick={() => handleValidate(request.id, 'approve')}
-                            className="px-3 py-1 bg-green-100 text-green-800 rounded text-xs font-bold hover:bg-green-200 transition-colors"
-                          >
-                            Validate
-                          </button>
-                          <button
-                            onClick={() => handleValidate(request.id, 'reject')}
-                            className="px-3 py-1 bg-red-100 text-red-800 rounded text-xs font-bold hover:bg-red-200 transition-colors"
-                          >
-                            Reject
-                          </button>
-                        </>
-                      )}
-
-                      {canApprove(request.status) && (
-                        <>
-                          <button
-                            onClick={() => handleApprove(request.id, 'approve')}
-                            className="px-3 py-1 bg-green-100 text-green-800 rounded text-xs font-bold hover:bg-green-200 transition-colors"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => handleApprove(request.id, 'reject')}
-                            className="px-3 py-1 bg-red-100 text-red-800 rounded text-xs font-bold hover:bg-red-200 transition-colors"
-                          >
-                            Reject
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
+        {error ? (
+          <div className="px-6 py-10 text-center">
+            <span className="material-symbols-outlined text-4xl text-red-400">error</span>
+            <p className="mt-3 text-base font-semibold text-on-surface">Data request belum bisa dimuat</p>
+            <p className="mt-2 text-sm text-on-surface-variant">{error}</p>
+          </div>
+        ) : requests.length === 0 ? (
+          <div className="px-6 py-10 text-center">
+            <span className="material-symbols-outlined text-4xl text-outline">inbox</span>
+            <p className="mt-3 text-base font-semibold text-on-surface">Belum ada permintaan item baru</p>
+            <p className="mt-2 text-sm text-on-surface-variant">
+              Data akan muncul di halaman ini setelah user menekan `Buat Permintaan Item Baru` dari flow `Input Inquiry`.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse font-data-table text-data-table">
+              <thead>
+                <tr className="bg-surface-container-low text-on-surface-variant border-b border-outline-variant">
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Request No</th>
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Part No</th>
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Part Name</th>
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Brand</th>
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Status</th>
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Tanggal</th>
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Aksi</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {requests.map((request) => (
+                  <tr key={request.id} className="hover:bg-surface-container-low transition-colors">
+                    <td className="px-6 py-4 font-semibold text-primary">{request.request_number}</td>
+                    <td className="px-6 py-4 font-mono">{request.part_no || request.partNumber || '-'}</td>
+                    <td className="px-6 py-4">{request.part_name}</td>
+                    <td className="px-6 py-4">{request.brand}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getStatusColor(request.status)}`}>
+                        {request.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">{request.created_at ? new Date(request.created_at).toLocaleDateString('id-ID') : '-'}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={`/requests/${request.id}`}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-outline-variant text-label-md font-medium hover:bg-surface-container transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-sm">visibility</span>
+                          Detail
+                        </Link>
+                        
+                        {canValidate(request.status) && (
+                          <>
+                            <button
+                              onClick={() => handleValidate(request.id, 'approve')}
+                              className="px-3 py-1 bg-green-100 text-green-800 rounded text-xs font-bold hover:bg-green-200 transition-colors"
+                            >
+                              Validate
+                            </button>
+                            <button
+                              onClick={() => handleValidate(request.id, 'reject')}
+                              className="px-3 py-1 bg-red-100 text-red-800 rounded text-xs font-bold hover:bg-red-200 transition-colors"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+
+                        {canApprove(request.status) && (
+                          <>
+                            <button
+                              onClick={() => handleApprove(request.id, 'approve')}
+                              className="px-3 py-1 bg-green-100 text-green-800 rounded text-xs font-bold hover:bg-green-200 transition-colors"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleApprove(request.id, 'reject')}
+                              className="px-3 py-1 bg-red-100 text-red-800 rounded text-xs font-bold hover:bg-red-200 transition-colors"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </main>
   )
