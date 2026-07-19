@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+
+<html class="light" lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Master Items - ItemMaster Pro</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-container": "#8ebdf9",
+                    "surface-container": "#ebeef0",
+                    "surface-bright": "#f7fafc",
+                    "on-secondary-fixed": "#111c2c",
+                    "tertiary-fixed-dim": "#a2c9ff",
+                    "surface-variant": "#e0e3e5",
+                    "surface-container-high": "#e5e9eb",
+                    "on-secondary-fixed-variant": "#3c475a",
+                    "on-secondary-container": "#586377",
+                    "secondary": "#545f72",
+                    "error": "#ba1a1a",
+                    "on-tertiary-fixed-variant": "#004881",
+                    "surface-dim": "#d7dadc",
+                    "primary": "#00355f",
+                    "inverse-on-surface": "#eef1f3",
+                    "primary-fixed-dim": "#a0c9ff",
+                    "inverse-primary": "#a0c9ff",
+                    "outline": "#727780",
+                    "tertiary-fixed": "#d3e4ff",
+                    "tertiary": "#003460",
+                    "on-error-container": "#93000a",
+                    "on-tertiary-container": "#8abcff",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-highest": "#e0e3e5",
+                    "secondary-fixed-dim": "#bcc7dd",
+                    "on-tertiary-fixed": "#001c38",
+                    "background": "#f7fafc",
+                    "primary-fixed": "#d2e4ff",
+                    "secondary-fixed": "#d8e3fa",
+                    "on-background": "#181c1e",
+                    "on-primary-fixed": "#001c37",
+                    "surface": "#f7fafc",
+                    "error-container": "#ffdad6",
+                    "on-secondary": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "surface-tint": "#2d6197",
+                    "outline-variant": "#c2c7d1",
+                    "primary-container": "#0f4c81",
+                    "on-surface": "#181c1e",
+                    "secondary-container": "#d5e0f7",
+                    "on-primary-fixed-variant": "#07497d",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-low": "#f1f4f6",
+                    "tertiary-container": "#004b87",
+                    "on-surface-variant": "#42474f",
+                    "inverse-surface": "#2d3133",
+                    "on-error": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "stack-md": "1rem",
+                    "margin-edge": "2rem",
+                    "stack-lg": "1.5rem",
+                    "container-max": "1440px",
+                    "stack-sm": "0.5rem",
+                    "gutter": "1rem"
+            },
+            "fontFamily": {
+                    "headline-xl": ["Hanken Grotesk"],
+                    "headline-md": ["Hanken Grotesk"],
+                    "data-table": ["Inter"],
+                    "body-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "label-md": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-xl": ["30px", {"lineHeight": "38px", "fontWeight": "700"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "data-table": ["13px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "label-md": ["13px", {"lineHeight": "18px", "letterSpacing": "0.02em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        body {
+            background-color: #F7FAFC;
+        }
+        .sidebar-active {
+            border-left: 4px solid #00355f;
+            background-color: rgba(188, 199, 221, 0.1);
+            color: white !important;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-surface">
+<!-- SideNavBar -->
+<aside class="fixed flex flex-col h-screen w-64 left-0 top-0 bg-[#1A202C] py-6 px-0 border-r border-outline-variant z-50">
+<div class="px-6 mb-10">
+<h1 class="font-headline-md text-headline-md font-bold text-white mb-1">ItemMaster Pro</h1>
+<p class="text-[11px] text-outline tracking-wider uppercase font-semibold">Enterprise Logistics</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center px-6 py-3 text-on-surface-variant hover:text-white hover:bg-secondary-fixed-dim/5 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-3">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center px-6 py-3 text-on-surface-variant hover:text-white hover:bg-secondary-fixed-dim/5 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-3">post_add</span>
+<span class="font-label-md text-label-md">Inquiries</span>
+</a>
+<a class="sidebar-active flex items-center px-6 py-3 transition-all duration-150" href="#">
+<span class="material-symbols-outlined mr-3">inventory_2</span>
+<span class="font-label-md text-label-md">Master Items</span>
+</a>
+<a class="flex items-center px-6 py-3 text-on-surface-variant hover:text-white hover:bg-secondary-fixed-dim/5 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-3">add_box</span>
+<span class="font-label-md text-label-md">Requests</span>
+</a>
+</nav>
+<div class="px-6 mb-6">
+<button class="w-full bg-primary-container text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined">add</span>
+<span class="font-label-md">New Inquiry</span>
+</button>
+</div>
+<div class="border-t border-white/10 pt-4">
+<a class="flex items-center px-6 py-3 text-on-surface-variant hover:text-white transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-3">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+<a class="flex items-center px-6 py-3 text-on-surface-variant hover:text-white transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-3">logout</span>
+<span class="font-label-md text-label-md">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<div class="ml-64 flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center w-full px-margin-edge h-16 sticky top-0 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40">
+<div class="flex items-center gap-4">
+<h2 class="font-headline-md text-headline-md font-bold text-primary">Master Items</h2>
+</div>
+<div class="flex items-center gap-6">
+<div class="relative group">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-outline material-symbols-outlined">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-full text-body-md w-64 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Cari Master Item..." type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container rounded-full transition-transform active:scale-95">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container rounded-full transition-transform active:scale-95">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+</div>
+<div class="flex items-center gap-3 pl-4 border-l border-outline-variant">
+<div class="text-right">
+<p class="text-label-md font-bold text-on-surface">Admin Logistic</p>
+<p class="text-[10px] text-on-surface-variant leading-none">Super User</p>
+</div>
+<img class="w-9 h-9 rounded-full border border-outline-variant object-cover" data-alt="A professional corporate headshot of a middle-aged Asian man wearing a formal business shirt, set against a blurred office background with soft daylight. The image has a clean, high-utility aesthetic with sharp focus on the face, representing a reliable enterprise user in a modern corporate setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBmhaoJ8vKDyF_P1nkWDtmhnl34Mks_sWYTFhJgyXEBDiB1XteW-5VLMhK9e1W46TicCzy113T1UuLJsX1V68gUaozThft5nqhGP8LULarv3RnV9wAJfzCpPDkxrqyDJ4IaF2KrIVLj04LZVKMS1OZRIwWE-yAJpC2dKAWvyroEwEAeelzn3-Jzp77MbYcZ84gLIpvhQbeK78EN2ScmE8dYuYpTEkKtC6WfUwg4dDjQCNOuNlT5LVBY6w"/>
+</div>
+</div>
+</header>
+<!-- Page Canvas -->
+<main class="p-margin-edge">
+<!-- Filters Section (Cek Master Item Step) -->
+<section class="bg-surface-container-lowest p-6 border border-outline-variant rounded-xl mb-stack-lg shadow-sm">
+<div class="flex items-center justify-between mb-stack-md">
+<h3 class="font-headline-md flex items-center gap-2 text-primary">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">filter_list</span>
+                        Cek Master Item
+                    </h3>
+<button class="text-primary hover:underline font-label-md">Reset Filter</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter items-end">
+<div class="space-y-2">
+<label class="font-label-md text-on-surface-variant">Brand</label>
+<select class="w-full border border-outline-variant rounded-lg p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary bg-white">
+<option>Semua Brand</option>
+<option>Toyota</option>
+<option>Honda</option>
+<option>Mitsubishi</option>
+<option>Suzuki</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="font-label-md text-on-surface-variant">Model</label>
+<select class="w-full border border-outline-variant rounded-lg p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary bg-white">
+<option>Semua Model</option>
+<option>Avanza</option>
+<option>Civic</option>
+<option>Xpander</option>
+<option>Ertiga</option>
+</select>
+</div>
+<div class="space-y-2">
+<label class="font-label-md text-on-surface-variant">Part No / Name</label>
+<input class="w-full border border-outline-variant rounded-lg p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Keyword..." type="text"/>
+</div>
+<div>
+<button class="w-full bg-primary text-white py-2 rounded-lg font-bold flex items-center justify-center gap-2 hover:opacity-90 transition-all">
+<span class="material-symbols-outlined">search</span>
+                            Cari Item
+                        </button>
+</div>
+</div>
+</section>
+<!-- Data Table Section -->
+<div class="bg-white border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+<div class="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low/30">
+<div class="flex items-center gap-4">
+<span class="text-label-md text-on-surface-variant">Menampilkan <span class="font-bold text-on-surface">24</span> dari 150 items</span>
+<div class="h-4 w-[1px] bg-outline-variant"></div>
+<div class="flex gap-1">
+<button class="px-3 py-1 rounded bg-surface-container-high text-on-surface-variant text-label-md font-bold">Export Excel</button>
+<button class="px-3 py-1 rounded bg-surface-container-high text-on-surface-variant text-label-md font-bold">Print PDF</button>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="p-1 border border-outline-variant rounded hover:bg-surface-container">
+<span class="material-symbols-outlined text-[20px]">chevron_left</span>
+</button>
+<button class="p-1 border border-outline-variant rounded hover:bg-surface-container">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse font-data-table text-data-table">
+<thead>
+<tr class="bg-surface-container-low text-on-surface-variant border-b border-outline-variant">
+<th class="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Part Master</th>
+<th class="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Brand</th>
+<th class="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Model</th>
+<th class="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Part No</th>
+<th class="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Part Name</th>
+<th class="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Status</th>
+<th class="px-6 py-3 font-bold uppercase tracking-wider text-right sticky right-0 bg-surface-container-low">Aksi</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-3 font-semibold text-primary">PM-2023-001</td>
+<td class="px-6 py-3">TOYOTA</td>
+<td class="px-6 py-3">AVANZA 2022</td>
+<td class="px-6 py-3 font-mono">88450-BZ010</td>
+<td class="px-6 py-3">Condenser Assy, Radiator</td>
+<td class="px-6 py-3">
+<span class="px-2 py-0.5 rounded-full bg-blue-100 text-[#00355f] font-bold text-[11px] uppercase">Terdaftar</span>
+</td>
+<td class="px-6 py-3 text-right sticky right-0 bg-white group-hover:bg-surface-container-lowest">
+<button class="text-on-surface-variant hover:text-primary p-1"><span class="material-symbols-outlined text-[18px]">visibility</span></button>
+<button class="text-on-surface-variant hover:text-primary p-1"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-3 font-semibold text-primary">PM-2023-004</td>
+<td class="px-6 py-3">HONDA</td>
+<td class="px-6 py-3">CIVIC FE 2022</td>
+<td class="px-6 py-3 font-mono">17220-64A-A00</td>
+<td class="px-6 py-3">Element, Air Cleaner</td>
+<td class="px-6 py-3">
+<span class="px-2 py-0.5 rounded-full bg-blue-100 text-[#00355f] font-bold text-[11px] uppercase">Terdaftar</span>
+</td>
+<td class="px-6 py-3 text-right sticky right-0 bg-white group-hover:bg-surface-container-lowest">
+<button class="text-on-surface-variant hover:text-primary p-1"><span class="material-symbols-outlined text-[18px]">visibility</span></button>
+<button class="text-on-surface-variant hover:text-primary p-1"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-3 font-semibold text-primary">PM-2023-012</td>
+<td class="px-6 py-3">MITSUBISHI</td>
+<td class="px-6 py-3">XPANDER CROSS</td>
+<td class="px-6 py-3 font-mono">MZ690115</td>
+<td class="px-6 py-3">Oil Filter, Engine</td>
+<td class="px-6 py-3">
+<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[11px] uppercase">Pending Approval</span>
+</td>
+<td class="px-6 py-3 text-right sticky right-0 bg-white group-hover:bg-surface-container-lowest">
+<button class="text-on-surface-variant hover:text-primary p-1"><span class="material-symbols-outlined text-[18px]">visibility</span></button>
+<button class="text-on-surface-variant hover:text-primary p-1"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-3 font-semibold text-primary">PM-2023-018</td>
+<td class="px-6 py-3">SUZUKI</td>
+<td class="px-6 py-3">ERTIGA HYBRID</td>
+<td class="px-6 py-3 font-mono">95861-73P00</td>
+<td class="px-6 py-3">Filter, Air Conditioner</td>
+<td class="px-6 py-3">
+<span class="px-2 py-0.5 rounded-full bg-blue-100 text-[#00355f] font-bold text-[11px] uppercase">Terdaftar</span>
+</td>
+<td class="px-6 py-3 text-right sticky right-0 bg-white group-hover:bg-surface-container-lowest">
+<button class="text-on-surface-variant hover:text-primary p-1"><span class="material-symbols-outlined text-[18px]">visibility</span></button>
+<button class="text-on-surface-variant hover:text-primary p-1"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-3 font-semibold text-primary">PM-2023-025</td>
+<td class="px-6 py-3">TOYOTA</td>
+<td class="px-6 py-3">HILUX 2.4D</td>
+<td class="px-6 py-3 font-mono">23390-0L070</td>
+<td class="px-6 py-3">Element Assy, Fuel Filter</td>
+<td class="px-6 py-3">
+<span class="px-2 py-0.5 rounded-full bg-red-100 text-red-800 font-bold text-[11px] uppercase">Ditolak</span>
+</td>
+<td class="px-6 py-3 text-right sticky right-0 bg-white group-hover:bg-surface-container-lowest">
+<button class="text-on-surface-variant hover:text-primary p-1"><span class="material-symbols-outlined text-[18px]">visibility</span></button>
+<button class="text-on-surface-variant hover:text-primary p-1"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+</td>
+</tr>
+<!-- Row 6 -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-3 font-semibold text-primary">PM-2023-030</td>
+<td class="px-6 py-3">HONDA</td>
+<td class="px-6 py-3">HR-V RS</td>
+<td class="px-6 py-3 font-mono">45022-T7A-000</td>
+<td class="px-6 py-3">Pad Set, Front Brake</td>
+<td class="px-6 py-3">
+<span class="px-2 py-0.5 rounded-full bg-blue-100 text-[#00355f] font-bold text-[11px] uppercase">Terdaftar</span>
+</td>
+<td class="px-6 py-3 text-right sticky right-0 bg-white group-hover:bg-surface-container-lowest">
+<button class="text-on-surface-variant hover:text-primary p-1"><span class="material-symbols-outlined text-[18px]">visibility</span></button>
+<button class="text-on-surface-variant hover:text-primary p-1"><span class="material-symbols-outlined text-[18px]">edit</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-6 py-4 border-t border-outline-variant flex justify-between items-center bg-surface-container-lowest">
+<span class="text-label-md text-on-surface-variant italic">Data diperbarui terakhir pada: 25 Oct 2023, 14:30 WIB</span>
+<nav class="flex gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-primary font-bold bg-secondary-fixed-dim/10">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant hover:bg-surface-container transition-colors">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant hover:bg-surface-container transition-colors">3</button>
+<span class="px-2 flex items-end">...</span>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant hover:bg-surface-container transition-colors">7</button>
+</nav>
+</div>
+</div>
+<!-- Dashboard Insight Cards (Bento Style) -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter mt-stack-lg">
+<div class="bg-[#1A202C] text-white p-6 rounded-xl relative overflow-hidden group">
+<div class="relative z-10">
+<p class="text-outline uppercase text-[10px] font-bold tracking-widest mb-1">Total Master Item</p>
+<h4 class="text-3xl font-bold font-headline-xl mb-4">12,482</h4>
+<div class="flex items-center gap-2 text-green-400 text-label-md">
+<span class="material-symbols-outlined text-[16px]">trending_up</span>
+<span>+420 item bulan ini</span>
+</div>
+</div>
+<span class="material-symbols-outlined absolute -bottom-4 -right-4 text-white/5 text-[120px] rotate-12 transition-transform group-hover:scale-110">inventory_2</span>
+</div>
+<div class="bg-white border border-outline-variant p-6 rounded-xl flex items-center gap-6">
+<div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">pending_actions</span>
+</div>
+<div>
+<p class="text-on-surface-variant text-label-md font-semibold">Menunggu Approval</p>
+<h4 class="text-2xl font-bold font-headline-xl text-on-surface">15 Request</h4>
+<p class="text-error text-[11px] mt-1 font-bold">Butuh tindakan segera</p>
+</div>
+</div>
+<div class="bg-white border border-outline-variant p-6 rounded-xl flex items-center gap-6">
+<div class="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">cloud_sync</span>
+</div>
+<div>
+<p class="text-on-surface-variant text-label-md font-semibold">Sync Status</p>
+<h4 class="text-2xl font-bold font-headline-xl text-on-surface">Berhasil</h4>
+<p class="text-on-surface-variant text-[11px] mt-1 italic">Update terakhir: 5 menit yang lalu</p>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Micro-interaction Script -->
+<script>
+        document.querySelectorAll('tbody tr').forEach(row => {
+            row.addEventListener('click', function() {
+                // Potential action for row click like opening detail modal
+                console.log('Row clicked:', this.querySelector('td:first-child').innerText);
+            });
+        });
+
+        // Simple mock search functionality
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('keyup', (e) => {
+            if(e.key === 'Enter') {
+                alert('Searching for: ' + searchInput.value);
+            }
+        });
+    </script>
+</body></html>

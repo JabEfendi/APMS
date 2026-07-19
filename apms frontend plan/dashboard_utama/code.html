@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+
+<html class="light" lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ItemMaster Pro - Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@600;700&amp;family=Inter:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#8ebdf9",
+                        "surface-container": "#ebeef0",
+                        "surface-bright": "#f7fafc",
+                        "on-secondary-fixed": "#111c2c",
+                        "tertiary-fixed-dim": "#a2c9ff",
+                        "surface-variant": "#e0e3e5",
+                        "surface-container-high": "#e5e9eb",
+                        "on-secondary-fixed-variant": "#3c475a",
+                        "on-secondary-container": "#586377",
+                        "secondary": "#545f72",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed-variant": "#004881",
+                        "surface-dim": "#d7dadc",
+                        "primary": "#00355f",
+                        "inverse-on-surface": "#eef1f3",
+                        "primary-fixed-dim": "#a0c9ff",
+                        "inverse-primary": "#a0c9ff",
+                        "outline": "#727780",
+                        "tertiary-fixed": "#d3e4ff",
+                        "tertiary": "#003460",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-container": "#8abcff",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-highest": "#e0e3e5",
+                        "secondary-fixed-dim": "#bcc7dd",
+                        "on-tertiary-fixed": "#001c38",
+                        "background": "#f7fafc",
+                        "primary-fixed": "#d2e4ff",
+                        "secondary-fixed": "#d8e3fa",
+                        "on-background": "#181c1e",
+                        "on-primary-fixed": "#001c37",
+                        "surface": "#f7fafc",
+                        "error-container": "#ffdad6",
+                        "on-secondary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "surface-tint": "#2d6197",
+                        "outline-variant": "#c2c7d1",
+                        "primary-container": "#0f4c81",
+                        "on-surface": "#181c1e",
+                        "secondary-container": "#d5e0f7",
+                        "on-primary-fixed-variant": "#07497d",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-low": "#f1f4f6",
+                        "tertiary-container": "#004b87",
+                        "on-surface-variant": "#42474f",
+                        "inverse-surface": "#2d3133",
+                        "on-error": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "stack-md": "1rem",
+                        "margin-edge": "2rem",
+                        "stack-lg": "1.5rem",
+                        "container-max": "1440px",
+                        "stack-sm": "0.5rem",
+                        "gutter": "1rem"
+                    },
+                    "fontFamily": {
+                        "headline-xl": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "data-table": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-xl": ["30px", { "lineHeight": "38px", "fontWeight": "700" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "data-table": ["13px", { "lineHeight": "16px", "fontWeight": "400" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-md": ["13px", { "lineHeight": "18px", "letterSpacing": "0.02em", "fontWeight": "600" }]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #F7FAFC;
+            color: #181C1E;
+            font-family: 'Inter', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom scrollbar for data density */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #CBD5E0;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F7FAFC;
+        }
+    </style>
+</head>
+<body class="flex min-h-screen">
+<!-- SideNavBar (JSON Derived) -->
+<aside class="fixed flex flex-col h-full py-6 px-0 bg-[#1A202C] docked h-screen w-64 left-0 top-0 border-r border-outline-variant z-50">
+<div class="px-6 mb-10 flex items-center gap-3">
+<div class="w-10 h-10 bg-primary-container flex items-center justify-center rounded">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-white leading-tight">ItemMaster Pro</h1>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest">Enterprise Logistics</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<!-- Active Tab: Dashboard -->
+<a class="flex items-center px-6 py-3 border-l-4 border-primary bg-secondary-fixed-dim/10 text-white font-bold transition-all duration-150" href="#">
+<span class="material-symbols-outlined mr-3">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center px-6 py-3 text-on-surface-variant hover:text-white hover:bg-secondary-fixed-dim/5 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-3">post_add</span>
+<span class="font-label-md text-label-md">Inquiries</span>
+</a>
+<a class="flex items-center px-6 py-3 text-on-surface-variant hover:text-white hover:bg-secondary-fixed-dim/5 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-3">inventory_2</span>
+<span class="font-label-md text-label-md">Master Items</span>
+</a>
+<a class="flex items-center px-6 py-3 text-on-surface-variant hover:text-white hover:bg-secondary-fixed-dim/5 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined mr-3">add_box</span>
+<span class="font-label-md text-label-md">Requests</span>
+</a>
+</nav>
+<div class="mt-auto px-6 space-y-4">
+<button class="w-full bg-primary py-2.5 rounded text-white font-label-md text-label-md hover:bg-primary-container transition-colors shadow-sm">
+                New Inquiry
+            </button>
+<div class="pt-6 border-t border-white/10 space-y-1">
+<a class="flex items-center py-2 text-on-surface-variant hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined mr-3">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+<a class="flex items-center py-2 text-on-surface-variant hover:text-white transition-colors" href="#">
+<span class="material-symbols-outlined mr-3">logout</span>
+<span class="font-label-md text-label-md">Logout</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<div class="flex-1 ml-64 min-h-screen flex flex-col">
+<!-- TopAppBar (JSON Derived) -->
+<header class="flex justify-between items-center w-full px-margin-edge h-16 sticky top-0 bg-surface-container-lowest border-b border-outline-variant shadow-sm z-40">
+<div class="flex items-center gap-4">
+<h2 class="font-headline-xl text-headline-xl text-primary font-bold">Ringkasan Dashboard</h2>
+</div>
+<div class="flex items-center gap-6">
+<!-- Search Bar -->
+<div class="relative w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg pl-10 pr-4 py-2 text-body-md focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all" placeholder="Cari Master Item atau No Inkuiri..." type="text"/>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors scale-95 active:opacity-80">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors scale-95 active:opacity-80">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<div class="h-8 w-px bg-outline-variant"></div>
+<div class="flex items-center gap-3">
+<div class="text-right">
+<p class="font-label-md text-label-md text-primary leading-none">Admin Logistik</p>
+<p class="text-[11px] text-on-surface-variant">PT. Logistik Prima</p>
+</div>
+<div class="w-9 h-9 rounded-full bg-secondary-container overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a corporate logistics manager in a modern office environment. The person is wearing a clean, navy blue suit and smiling confidently. The lighting is bright and even, highlighting a clean, high-utility business atmosphere with a soft-focus office background of glass walls and white desks." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAFrwJKxnD7X1z5qTyjHZP9UJ3a9T67S__NZHvVNDsGZ3px0GL7WDQNoXUkRxXnMedrG8BWfGrqIdOUm7Nl3WZuCSYixWetG1P55ybPD0zVyNOkZF_B9pFVchggJ6CIXUeQBkLaZbedBHbD2PUiizQIFuhPJoAdnDDha37F-d3DWJu-p-Qk32R6JPXvqJ2OtJHLu9BcXd02BbLB_BQLW8IEdEJdnZHUrBhTNiOJpX_OnIU2tS_PKOvidg"/>
+</div>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="p-stack-lg space-y-stack-lg max-w-[1440px] mx-auto w-full">
+<!-- Quick Stats Grid (Bento Style) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter">
+<div class="bg-surface-container-lowest p-stack-md border border-outline-variant rounded-xl flex flex-col justify-between hover:shadow-md transition-shadow cursor-default">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">inbox</span>
+<span class="text-green-600 text-xs font-bold bg-green-50 px-2 py-1 rounded">+12%</span>
+</div>
+<div class="mt-4">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Total Inkuiri</h3>
+<p class="font-headline-xl text-headline-xl text-primary mt-1">1,284</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-stack-md border border-outline-variant rounded-xl flex flex-col justify-between hover:shadow-md transition-shadow cursor-default">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-error bg-error/10 p-2 rounded-lg">pending_actions</span>
+<span class="text-error text-xs font-bold bg-error/5 px-2 py-1 rounded">Mendesak</span>
+</div>
+<div class="mt-4">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Menunggu Pengecekan</h3>
+<p class="font-headline-xl text-headline-xl text-primary mt-1">42</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-stack-md border border-outline-variant rounded-xl flex flex-col justify-between hover:shadow-md transition-shadow cursor-default">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-tertiary-container bg-tertiary-container/10 p-2 rounded-lg">add_circle</span>
+<span class="text-on-surface-variant text-xs font-bold px-2 py-1 rounded">Minggu Ini</span>
+</div>
+<div class="mt-4">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Permintaan Item Baru</h3>
+<p class="font-headline-xl text-headline-xl text-primary mt-1">18</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-stack-md border border-outline-variant rounded-xl flex flex-col justify-between hover:shadow-md transition-shadow cursor-default overflow-hidden relative">
+<div class="relative z-10">
+<div class="flex justify-between items-start">
+<span class="material-symbols-outlined text-secondary bg-secondary/10 p-2 rounded-lg">database</span>
+</div>
+<div class="mt-4">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Master Item Aktif</h3>
+<p class="font-headline-xl text-headline-xl text-primary mt-1">24,592</p>
+</div>
+</div>
+<div class="absolute bottom-0 right-0 w-24 h-24 opacity-5 pointer-events-none">
+<span class="material-symbols-outlined text-[100px]">inventory</span>
+</div>
+</div>
+</div>
+<!-- Dashboard Body: Two Columns -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<!-- Recent Activity Table (2/3 width) -->
+<div class="lg:col-span-2 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden flex flex-col">
+<div class="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+<h3 class="font-headline-md text-headline-md text-primary">Aktivitas Inkuiri Terkini</h3>
+<div class="flex gap-2">
+<button class="px-3 py-1.5 border border-outline-variant rounded text-label-md bg-white hover:bg-surface-container transition-colors">Filter</button>
+<button class="px-3 py-1.5 border border-outline-variant rounded text-label-md bg-white hover:bg-surface-container transition-colors">Ekspor CSV</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left font-data-table text-data-table">
+<thead class="bg-surface-container text-on-surface-variant uppercase font-bold text-[11px] tracking-wider">
+<tr>
+<th class="px-6 py-3">No. Inkuiri</th>
+<th class="px-6 py-3">Customer</th>
+<th class="px-6 py-3">Item / Part No</th>
+<th class="px-6 py-3">Status</th>
+<th class="px-6 py-3 text-right">Aksi</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-4 font-bold text-primary">INQ-2023-001</td>
+<td class="px-6 py-4">Internal Logistic</td>
+<td class="px-6 py-4">
+<div class="flex flex-col">
+<span>Brake Pad Set</span>
+<span class="text-[11px] text-on-surface-variant">PN: 45022-TE0-A00</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold uppercase">Baru</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary hover:underline opacity-0 group-hover:opacity-100 transition-opacity">Detail</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-4 font-bold text-primary">INQ-2023-002</td>
+<td class="px-6 py-4">Astra Parts Corp</td>
+<td class="px-6 py-4">
+<div class="flex flex-col">
+<span>Oil Filter High Performance</span>
+<span class="text-[11px] text-on-surface-variant">PN: 15400-PLM-A01</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded-full bg-orange-100 text-orange-800 text-[10px] font-bold uppercase">Menunggu Cek</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary hover:underline opacity-0 group-hover:opacity-100 transition-opacity">Detail</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-4 font-bold text-primary">INQ-2023-003</td>
+<td class="px-6 py-4">Global Trading Ltd</td>
+<td class="px-6 py-4">
+<div class="flex flex-col">
+<span>Spark Plug Iridium</span>
+<span class="text-[11px] text-on-surface-variant">PN: 98079-5614P</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded-full bg-purple-100 text-purple-800 text-[10px] font-bold uppercase">Permintaan Baru</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary hover:underline opacity-0 group-hover:opacity-100 transition-opacity">Detail</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-6 py-4 font-bold text-primary">INQ-2023-004</td>
+<td class="px-6 py-4">Internal Logistic</td>
+<td class="px-6 py-4">
+<div class="flex flex-col">
+<span>Clutch Disc Assy</span>
+<span class="text-[11px] text-on-surface-variant">PN: 22200-R60-005</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="px-2 py-1 rounded-full bg-green-100 text-green-800 text-[10px] font-bold uppercase">Selesai</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary hover:underline opacity-0 group-hover:opacity-100 transition-opacity">Detail</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="mt-auto p-4 border-t border-outline-variant text-center">
+<button class="text-primary font-label-md text-label-md hover:underline">Lihat Semua Inkuiri</button>
+</div>
+</div>
+<!-- Workflow Visualization / Shortcut (1/3 width) -->
+<div class="space-y-gutter">
+<!-- Flow Diagram Miniature Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm p-stack-md">
+<h3 class="font-headline-md text-headline-md text-primary mb-4 border-b border-outline-variant pb-2">Status Alur Kerja</h3>
+<div class="relative space-y-6">
+<!-- Visual Connection Line -->
+<div class="absolute left-[11px] top-6 bottom-6 w-0.5 bg-outline-variant"></div>
+<div class="flex gap-4 relative z-10">
+<div class="w-6 h-6 rounded-full bg-primary-container text-white flex items-center justify-center text-[10px] font-bold">1</div>
+<div>
+<p class="font-label-md text-label-md text-primary">Inkuiri Masuk</p>
+<p class="text-[11px] text-on-surface-variant">Validasi data dasar &amp; no inkuiri</p>
+</div>
+</div>
+<div class="flex gap-4 relative z-10">
+<div class="w-6 h-6 rounded-full bg-surface-variant text-primary flex items-center justify-center text-[10px] font-bold">2</div>
+<div>
+<p class="font-label-md text-label-md text-primary opacity-60">Cek Master Item</p>
+<p class="text-[11px] text-on-surface-variant">Pencarian Brand + Part No</p>
+</div>
+</div>
+<div class="flex gap-4 relative z-10">
+<div class="w-6 h-6 rounded-full bg-surface-variant text-primary flex items-center justify-center text-[10px] font-bold">3</div>
+<div>
+<p class="font-label-md text-label-md text-primary opacity-60">Persetujuan Item Baru</p>
+<p class="text-[11px] text-on-surface-variant">Input Model, VIN &amp; Foto</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Action Card -->
+<div class="bg-primary text-white border border-primary-container rounded-xl shadow-sm p-stack-md overflow-hidden relative">
+<div class="relative z-10">
+<h3 class="font-headline-md text-headline-md text-white mb-2">Item Belum Terdaftar?</h3>
+<p class="text-body-md text-primary-fixed opacity-90 mb-6">Gunakan form permohonan item baru untuk mendaftarkan part ke Master Item sistem.</p>
+<button class="bg-white text-primary px-6 py-2.5 rounded font-label-md text-label-md hover:bg-primary-fixed transition-colors">
+                                Buat Permohonan
+                            </button>
+</div>
+<div class="absolute -right-8 -bottom-8 opacity-10">
+<span class="material-symbols-outlined text-[160px]" style="font-variation-settings: 'FILL' 1;">add_box</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Second Row: Analytics & Assets -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+<!-- Visual Asset: Master Item Catalog Preview -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm p-stack-md">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-headline-md text-headline-md text-primary">Katalog Master Item</h3>
+<a class="text-primary text-label-md hover:underline" href="#">Semua Item</a>
+</div>
+<div class="grid grid-cols-3 gap-4">
+<div class="group cursor-pointer">
+<div class="aspect-square bg-surface-container-low rounded-lg overflow-hidden border border-outline-variant group-hover:border-primary transition-all">
+<img class="w-full h-full object-cover" data-alt="A macro studio photograph of an automotive brake disc on a clean white background. High-key lighting highlights the metallic texture and precise machining of the component. The style is industrial and clean, reflecting enterprise-grade logistics and parts management." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfzaEkIVOvB3QcH_IVwzdNbyZsO7eyaiF-ZZTbZXzvyqVqJ7QEiJLduX6C47CTU2zbKnJiVCMpUFU8W7tqrqJiXI0yuIGfGPFs_iDTIQq1brLO4KUVwmsoxEStSQrjqX4LW-MVSxXMuv2WOJpMGYBYUCa2tUQVuMZ4cgM6UV9YkjEQOxRk4cjvjrjGkKLMl8fVk1_iAA4pfAk_YsFsBvmEaSD_miaAqDQqX3c3glqC3Z9wveNQvdOdyg"/>
+</div>
+<p class="mt-2 text-center text-label-md font-bold text-primary truncate">Brake Components</p>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-square bg-surface-container-low rounded-lg overflow-hidden border border-outline-variant group-hover:border-primary transition-all">
+<img class="w-full h-full object-cover" data-alt="A clean, minimalist product shot of various industrial oil filters arranged symmetrically on a light gray surface. Soft ambient shadows provide depth while maintaining a technical and professional look for a warehouse inventory system." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCyJYILYB5IIaIKicpuT67Yuz8BJXn8VM0Y1s7Ins5oKqK9Fre0CbXM2RrHa6bqueacNymsBi4FzY6FsdEhBzln_eM4_m2vflggpnFF9npXE-sTXBZcnpwJwsATCI2zB2edAZK8tazfRW4_uGnGaB3mAjgQUnJQg38FgCaGiPrIZfcgndgSVmYLekthIkx9yhbglrT4aNBdTRThxEhNVnpYQVXorAC7G7gOg8DJychxncWhjV7ItJUL4A"/>
+</div>
+<p class="mt-2 text-center text-label-md font-bold text-primary truncate">Filters &amp; Lubricants</p>
+</div>
+<div class="group cursor-pointer">
+<div class="aspect-square bg-surface-container-low rounded-lg overflow-hidden border border-outline-variant group-hover:border-primary transition-all">
+<img class="w-full h-full object-cover" data-alt="Close-up photograph of a modern electronic engine control unit (ECU) with visible connection pins and professional labels. The lighting is cold-toned and focused, emphasizing technological complexity and precision master data management." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBh9CgzHVTGuYIxHAV9TpM6k65JzONJbhgj8jz1ZQ9dxKkaN9ljCvJ8DRNgXJwUKjd-yYY2_L5lKyfo9Ky6CP90uezhxSK6JDHOPKysgBje8DaesJNxy6I8nx_9lNCR73ZlhPcMgQ45ZrB-eler8olHqs2xTSSzZvk4lmgaQDtn2B-pdWEPkgE0lgBHjCiwWPLC_kG30lFmFEZFTZHVPxpOomBG584w6G3zMOr91xnA9l43qe_gJd14UQ"/>
+</div>
+<p class="mt-2 text-center text-label-md font-bold text-primary truncate">Engine Electronics</p>
+</div>
+</div>
+</div>
+<!-- Item Approval Timeline -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm p-stack-md flex flex-col">
+<h3 class="font-headline-md text-headline-md text-primary mb-4">Persetujuan Terakhir</h3>
+<div class="space-y-4 flex-1">
+<div class="flex items-center gap-4 p-3 bg-surface-container-low rounded-lg">
+<div class="w-10 h-10 bg-green-100 text-green-700 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">check_circle</span>
+</div>
+<div class="flex-1">
+<p class="text-label-md font-bold text-primary">Master Item #8812 Disetujui</p>
+<p class="text-[11px] text-on-surface-variant">Oleh: Manager Logistik • 12 Menit Lalu</p>
+</div>
+<span class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded">BERHASIL</span>
+</div>
+<div class="flex items-center gap-4 p-3 border border-outline-variant rounded-lg">
+<div class="w-10 h-10 bg-error-container text-error rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">cancel</span>
+</div>
+<div class="flex-1">
+<p class="text-label-md font-bold text-primary">Inkuiri #INQ-2023-005 Ditolak</p>
+<p class="text-[11px] text-on-surface-variant">Data Part No tidak valid • 2 Jam Lalu</p>
+</div>
+<span class="text-[10px] font-bold text-error bg-error-container/20 px-2 py-1 rounded">REVISI</span>
+</div>
+<div class="flex items-center gap-4 p-3 border border-outline-variant rounded-lg">
+<div class="w-10 h-10 bg-tertiary-container/20 text-tertiary rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined">hourglass_top</span>
+</div>
+<div class="flex-1">
+<p class="text-label-md font-bold text-primary">Validasi Foto #INQ-2023-009</p>
+<p class="text-[11px] text-on-surface-variant">Menunggu verifikasi fisik • Kemarin</p>
+</div>
+<span class="text-[10px] font-bold text-tertiary-container bg-tertiary-container/10 px-2 py-1 rounded">PENDING</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer Info -->
+<footer class="mt-auto py-6 px-margin-edge bg-surface-container-low border-t border-outline-variant flex justify-between items-center text-on-surface-variant text-[12px]">
+<p>© 2024 ItemMaster Pro Enterprise. Hak Cipta Dilindungi.</p>
+<div class="flex gap-6">
+<a class="hover:text-primary" href="#">Panduan Pengguna</a>
+<a class="hover:text-primary" href="#">Kebijakan Privasi</a>
+<a class="hover:text-primary" href="#">Dukungan Teknis</a>
+</div>
+</footer>
+</div>
+<!-- Micro-interaction Scripts -->
+<script>
+        // Simple search focus effect
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('focus', () => {
+            searchInput.parentElement.classList.add('ring-primary');
+        });
+        searchInput.addEventListener('blur', () => {
+            searchInput.parentElement.classList.remove('ring-primary');
+        });
+
+        // Dashboard live notification simulation (optional atmospheric effect)
+        setInterval(() => {
+            console.log("Checking for updates in Master Items...");
+        }, 30000);
+    </script>
+</body></html>
