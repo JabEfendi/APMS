@@ -34,7 +34,7 @@ function MasterItems() {
 
   const loadBrandsAndModels = async () => {
     try {
-      const result = await axios.get('http://localhost:3001/api/master-items', {
+      const result = await axios.get('/api/master-items', {
         params: { limit: 10000 }
       })
       setAllItems(result.data.data)
@@ -54,7 +54,7 @@ function MasterItems() {
       if (filters.model) params.model = filters.model
       if (filters.search) params.search = filters.search
       
-      const result = await axios.get('http://localhost:3001/api/master-items', { params })
+      const result = await axios.get('/api/master-items', { params })
       setItems(result.data.data)
       setTotal(result.data.total)
       setTotalPages(result.data.totalPages)

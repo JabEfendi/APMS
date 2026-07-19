@@ -8,8 +8,21 @@ const pool = require('./db');
 const app = express();
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const allowedOrigins = (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
-app.use(cors());
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true
+}));
 app.use(express.json());
 
 // Helper function to get table name from slug
@@ -147,6 +160,23 @@ const buildCountQuery = (table, filters = {}) => {
 // Test endpoint
 app.get('/', (req, res) => {
     res.send('APMS Backend API is running');
+});
+
+// Health check endpoint
+app.get('/api/health', async (req, res) => {
+    try {
+        await pool.query('SELECT 1');
+        res.json({
+            status: 'ok',
+            database: 'connected'
+        });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({
+            status: 'error',
+            database: 'disconnected'
+        });
+    }
 });
 
 // Register endpoint

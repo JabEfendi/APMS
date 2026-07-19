@@ -107,7 +107,7 @@ function RequestDetail() {
       try {
         setLoading(true)
         setError('')
-        const result = await axios.get(`http://localhost:3001/api/requests/${id}`)
+        const result = await axios.get(`/api/requests/${id}`)
         setRequest(result.data)
       } catch (err) {
         console.error(err)

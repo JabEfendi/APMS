@@ -24,7 +24,7 @@ function NewItemRequest() {
     e.preventDefault()
     setIsSubmitting(true)
     try {
-      await axios.post('http://localhost:3001/api/new-item-request', {
+      await axios.post('/api/new-item-request', {
         partNo: formData.partNo,
         partName: formData.partName,
         brand: formData.brand,

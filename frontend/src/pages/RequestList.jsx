@@ -20,7 +20,7 @@ function RequestList() {
 
   const loadRequests = async () => {
     try {
-      const result = await axios.get('http://localhost:3001/api/requests', {
+      const result = await axios.get('/api/requests', {
         params: { page, limit: 15 }
       })
       if (result.data.data.length > 0) {
@@ -90,7 +90,7 @@ function RequestList() {
 
   const loadAllRequests = async () => {
     try {
-      const result = await axios.get('http://localhost:3001/api/requests', {
+      const result = await axios.get('/api/requests', {
         params: { limit: 10000 }
       })
       if (result.data.data.length > 0) {
@@ -127,7 +127,7 @@ function RequestList() {
 
   const handleValidate = async (id, action) => {
     try {
-      await axios.put(`http://localhost:3001/api/requests/${id}/validate`, { action })
+      await axios.put(`/api/requests/${id}/validate`, { action })
       loadRequests()
       loadAllRequests()
     } catch (err) {
@@ -137,7 +137,7 @@ function RequestList() {
 
   const handleApprove = async (id, action) => {
     try {
-      await axios.put(`http://localhost:3001/api/requests/${id}/approve`, { action })
+      await axios.put(`/api/requests/${id}/approve`, { action })
       loadRequests()
       loadAllRequests()
     } catch (err) {

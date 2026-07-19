@@ -95,7 +95,7 @@ function MasterItemDetail() {
       try {
         setLoading(true)
         setError('')
-        const result = await axios.get(`http://localhost:3001/api/master-items/${id}`)
+        const result = await axios.get(`/api/master-items/${id}`)
         setItem(result.data)
       } catch (err) {
         console.error(err)

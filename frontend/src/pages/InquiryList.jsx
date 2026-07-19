@@ -31,7 +31,7 @@ function InquiryList() {
       if (filters.status) params.status = filters.status
       if (filters.search) params.search = filters.search
 
-      const result = await axios.get('http://localhost:3001/api/inquiries', { params })
+      const result = await axios.get('/api/inquiries', { params })
       setInquiries(result.data.data)
       setTotal(result.data.total)
       setTotalPages(result.data.totalPages)
@@ -44,7 +44,7 @@ function InquiryList() {
 
   const loadAllInquiries = async () => {
     try {
-      const result = await axios.get('http://localhost:3001/api/inquiries', {
+      const result = await axios.get('/api/inquiries', {
         params: { limit: 10000 }
       })
       setAllInquiries(result.data.data)

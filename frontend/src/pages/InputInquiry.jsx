@@ -41,7 +41,7 @@ function InputInquiry() {
 
   const fetchCustomers = async () => {
     try {
-      const response = await axios.get('http://localhost:3001/api/customers')
+      const response = await axios.get('/api/customers')
       setCustomers(response.data)
     } catch (err) {
       console.error('Error fetching customers:', err)
@@ -50,7 +50,7 @@ function InputInquiry() {
 
   const fetchBrands = async () => {
     try {
-      const response = await axios.get('http://localhost:3001/api/master-items')
+      const response = await axios.get('/api/master-items')
       const uniqueBrands = [...new Set(response.data.map(item => item.Brand).filter(Boolean))]
       setBrands(uniqueBrands)
     } catch (err) {
@@ -97,7 +97,7 @@ function InputInquiry() {
         item: null
       })
 
-      const response = await axios.get('http://localhost:3001/api/master-items', {
+      const response = await axios.get('/api/master-items', {
         params: { search: formData.partNumber }
       })
 

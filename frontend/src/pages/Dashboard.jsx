@@ -21,9 +21,9 @@ function Dashboard() {
     try {
       setLoading(true)
       const [statsRes, inquiriesRes, requestsRes] = await Promise.all([
-        axios.get('http://localhost:3001/api/stats'),
-        axios.get('http://localhost:3001/api/inquiries', { params: { limit: 100 } }),
-        axios.get('http://localhost:3001/api/requests')
+        axios.get('/api/stats'),
+        axios.get('/api/inquiries', { params: { limit: 100 } }),
+        axios.get('/api/requests')
       ])
       
       setStats({

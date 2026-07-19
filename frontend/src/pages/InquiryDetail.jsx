@@ -120,7 +120,7 @@ function InquiryDetail() {
       try {
         setLoading(true)
         setError('')
-        const result = await axios.get(`http://localhost:3001/api/inquiries/${id}`)
+        const result = await axios.get(`/api/inquiries/${id}`)
         setInquiry(result.data)
       } catch (err) {
         console.error(err)
