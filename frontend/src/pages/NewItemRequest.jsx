@@ -14,6 +14,7 @@ function NewItemRequest() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -22,6 +23,13 @@ function NewItemRequest() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setSubmitError('')
+
+    if (!formData.partNo || !formData.partName || !formData.brand) {
+      setSubmitError('Part Number, Nama Part, dan Brand wajib diisi.')
+      return
+    }
+
     setIsSubmitting(true)
     try {
       await axios.post('/api/new-item-request', {
@@ -37,6 +45,7 @@ function NewItemRequest() {
       }, 2000)
     } catch (err) {
       console.error('Error submitting request:', err)
+      setSubmitError(err.response?.data?.error || 'Gagal mengirim request. Coba lagi setelah backend aktif.')
     } finally {
       setIsSubmitting(false)
     }
@@ -121,6 +130,12 @@ function NewItemRequest() {
             </div>
             <div className="w-fit rounded-full bg-secondary-container px-3 py-1 text-xs font-bold uppercase text-on-secondary-container">Draft #REQ-8821</div>
           </div>
+
+          {submitError && (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              {submitError}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-8">
             {/* Section: Validasi Part No */}

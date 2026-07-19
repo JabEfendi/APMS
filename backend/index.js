@@ -63,6 +63,37 @@ const syncBrandsTable = async () => {
     `);
 };
 
+const ensureNewItemRequestsTable = async () => {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS new_item_requests (
+            id SERIAL PRIMARY KEY,
+            request_number VARCHAR(255) NOT NULL,
+            part_no VARCHAR(255),
+            part_name VARCHAR(255),
+            brand VARCHAR(255),
+            model VARCHAR(255),
+            vin VARCHAR(255),
+            status VARCHAR(255) DEFAULT 'validation',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS request_number VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS part_no VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS part_name VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS brand VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS model VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS vin VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS status VARCHAR(255) DEFAULT 'validation'`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS validated_by INTEGER`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS validated_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS approved_by INTEGER`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`);
+};
+
 // Helper function to get table name from slug
 const getTableName = (slug) => {
     const tableMap = {
@@ -353,11 +384,16 @@ app.get('/api/stats', async (req, res) => {
 app.post('/api/new-item-request', async (req, res) => {
     try {
         const { partNo, partName, brand, model, vin } = req.body;
+
+        if (!partNo || !partName || !brand) {
+            return res.status(400).json({ error: 'Part number, part name, and brand are required' });
+        }
+
         const requestNumber = `REQ-${Date.now()}`;
 
         const result = await pool.query(
             `INSERT INTO new_item_requests (request_number, part_no, part_name, brand, model, vin, status) VALUES ($1, $2, $3, $4, $5, $6, 'validation') RETURNING *`,
-            [requestNumber, partNo, partName, brand, model, vin]
+            [requestNumber, partNo, partName, brand, model || null, vin || null]
         );
 
         res.json(result.rows[0]);
@@ -526,9 +562,10 @@ app.get('/api/:tableSlug', async (req, res) => {
     }
 });
 
-syncBrandsTable()
+Promise.all([syncBrandsTable(), ensureNewItemRequestsTable()])
     .then(() => {
         console.log('Brand master synchronized');
+        console.log('Request table synchronized');
     })
     .catch((err) => {
         console.error('Failed to synchronize brand master:', err.message);
