@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "tunnel:ngrok": "npx ngrok http 3001",
     "migrate": "node migrate-schema.js",
     "import:csv": "node import-csv.js",
     "bootstrap:supabase": "node migrate-schema.js && node import-csv.js",
