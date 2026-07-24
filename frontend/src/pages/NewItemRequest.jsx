@@ -1,43 +1,216 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+
+function findFirstValue(source, keys) {
+  if (!source) {
+    return ''
+  }
+
+  const match = keys.find((key) => source[key] !== undefined && source[key] !== null && source[key] !== '')
+  return match ? String(source[match]).trim() : ''
+}
+
+function buildInitialFormData(source = {}) {
+  return {
+    inquiryId: source.inquiryNumber || '',
+    customer: source.customer || '',
+    partNo: source.partNumber || '',
+    partName: source.partName || '',
+    brand: source.brand || '',
+    model: source.model || '',
+    seriesType: source.seriesType || '',
+    year: source.year || '',
+    workshopName: source.workshopName || '',
+    vin: source.vin || '',
+    dataStatus: source.dataStatus || 'Tidak Complete',
+    vendorId: source.vendorId || '',
+    vendorName: source.vendorName || '',
+    categoryPart: source.categoryPart || '',
+    currency: source.currency || 'IDR',
+    atpmPrice: source.atpmPrice || '',
+    costPrice: source.costPrice || '',
+    hppIdr: source.hppIdr || '',
+    updateDate: source.updateDate || new Date().toISOString().split('T')[0],
+    itemImageUrl: source.itemImageUrl || '',
+    itemImageName: source.itemImageName || '',
+    itemImageMimeType: source.itemImageMimeType || '',
+    attachmentUrl: source.attachmentUrl || '',
+    attachmentName: source.attachmentName || '',
+    attachmentMimeType: source.attachmentMimeType || '',
+    notes: source.notes || ''
+  }
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(new Error('Gagal membaca file'))
+    reader.readAsDataURL(file)
+  })
+}
 
 function NewItemRequest() {
   const navigate = useNavigate()
   const location = useLocation()
   const inquirySource = location.state?.inquiry
-  const [formData, setFormData] = useState({
-    partNo: inquirySource?.partNumber || '',
-    partName: inquirySource?.partName || '',
-    brand: inquirySource?.brand || '',
-    vin: inquirySource?.vin || ''
-  })
+  const [formData, setFormData] = useState(() => buildInitialFormData(inquirySource))
+  const [brands, setBrands] = useState([])
+  const [vendors, setVendors] = useState([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitSuccess, setSubmitSuccess] = useState(false)
   const [submitError, setSubmitError] = useState('')
 
+  useEffect(() => {
+    const loadReferences = async () => {
+      try {
+        const [brandsResponse, vendorsResponse] = await Promise.all([
+          axios.get('/api/brands'),
+          axios.get('/api/vendors', {
+            params: {
+              limit: 500
+            }
+          })
+        ])
+
+        setBrands(brandsResponse.data || [])
+
+        const vendorRows = Array.isArray(vendorsResponse.data?.data)
+          ? vendorsResponse.data.data
+          : Array.isArray(vendorsResponse.data)
+            ? vendorsResponse.data
+            : []
+
+        const normalizedVendors = vendorRows
+          .map((vendor) => ({
+            id: findFirstValue(vendor, ['Vendor_ID', 'Vendor ID', 'vendor_id']),
+            name: findFirstValue(vendor, ['Vendor_Name', 'Vendor Name', 'Vendor Name ', 'vendor_name']),
+            category: findFirstValue(vendor, ['Category', 'Category_', 'category', 'Category_Part']),
+            suppliedBrands: findFirstValue(vendor, ['Supplied_Brands', 'Supplied Brands', 'supplied_brands'])
+          }))
+          .filter((vendor) => vendor.id || vendor.name)
+          .sort((left, right) => left.name.localeCompare(right.name))
+
+        setVendors(normalizedVendors)
+      } catch (err) {
+        console.error('Error fetching reference data:', err)
+      }
+    }
+
+    loadReferences()
+  }, [])
+
+  useEffect(() => {
+    setFormData(buildInitialFormData(inquirySource))
+  }, [inquirySource])
+
+  const selectedVendorOption = useMemo(() => {
+    if (!formData.vendorId && !formData.vendorName) {
+      return ''
+    }
+
+    return `${formData.vendorId}||${formData.vendorName}`
+  }, [formData.vendorId, formData.vendorName])
+
   const handleInputChange = (e) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleVendorSelect = (e) => {
+    const selectedKey = e.target.value
+
+    if (!selectedKey) {
+      return
+    }
+
+    const selectedVendor = vendors.find((vendor) => `${vendor.id}||${vendor.name}` === selectedKey)
+    if (!selectedVendor) {
+      return
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      vendorId: selectedVendor.id || prev.vendorId,
+      vendorName: selectedVendor.name || prev.vendorName,
+      categoryPart: prev.categoryPart || selectedVendor.category || ''
+    }))
+  }
+
+  const handleFileUpload = async (e) => {
+    const { name, files } = e.target
+    const selectedFile = files?.[0]
+
+    if (!selectedFile) {
+      return
+    }
+
+    try {
+      const dataUrl = await readFileAsDataUrl(selectedFile)
+
+      if (name === 'itemImageFile') {
+        setFormData((prev) => ({
+          ...prev,
+          itemImageUrl: dataUrl,
+          itemImageName: selectedFile.name,
+          itemImageMimeType: selectedFile.type || 'application/octet-stream'
+        }))
+        return
+      }
+
+      if (name === 'attachmentFile') {
+        setFormData((prev) => ({
+          ...prev,
+          attachmentUrl: dataUrl,
+          attachmentName: selectedFile.name,
+          attachmentMimeType: selectedFile.type || 'application/octet-stream'
+        }))
+      }
+    } catch (err) {
+      console.error('Error reading file:', err)
+      setSubmitError('File gagal dibaca. Coba pilih file lain.')
+    }
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitError('')
 
-    if (!formData.partNo || !formData.partName || !formData.brand) {
-      setSubmitError('Part Number, Nama Part, dan Brand wajib diisi.')
+    if (!formData.inquiryId || !formData.partNo || !formData.partName || !formData.brand || !formData.model || !formData.vendorName) {
+      setSubmitError('Inquiry ID, Part Number, Nama Part, Brand, Model, dan Vendor wajib diisi.')
       return
     }
 
     setIsSubmitting(true)
     try {
       await axios.post('/api/new-item-request', {
+        inquiryId: formData.inquiryId,
+        customer: formData.customer,
         partNo: formData.partNo,
         partName: formData.partName,
         brand: formData.brand,
-        model: '', // We can add model later
-        vin: formData.vin
+        model: formData.model,
+        seriesType: formData.seriesType,
+        year: formData.year,
+        workshopName: formData.workshopName,
+        vin: formData.vin,
+        dataStatus: formData.dataStatus,
+        vendorId: formData.vendorId,
+        vendorName: formData.vendorName,
+        categoryPart: formData.categoryPart,
+        currency: formData.currency,
+        atpmPrice: formData.atpmPrice,
+        costPrice: formData.costPrice,
+        hppIdr: formData.hppIdr,
+        updateDate: formData.updateDate,
+        itemImageUrl: formData.itemImageUrl,
+        itemImageName: formData.itemImageName,
+        itemImageMimeType: formData.itemImageMimeType,
+        attachmentUrl: formData.attachmentUrl,
+        attachmentName: formData.attachmentName,
+        attachmentMimeType: formData.attachmentMimeType,
+        notes: formData.notes
       })
       setSubmitSuccess(true)
       setTimeout(() => {
@@ -53,7 +226,6 @@ function NewItemRequest() {
 
   return (
     <main className="min-h-[calc(100vh-64px)] bg-surface px-4 py-6 sm:px-6 lg:px-8">
-      {/* Workflow Tracker */}
       <div className="mx-auto mb-8 grid max-w-5xl grid-cols-2 gap-4 lg:grid-cols-4">
         {[
           { step: 1, label: 'Input Inquiry', active: false },
@@ -78,24 +250,21 @@ function NewItemRequest() {
             >
               {item.step}
             </div>
-            <p
-              className={`mt-3 text-xs font-medium sm:text-sm ${
-                item.active ? 'text-primary font-bold' : 'text-on-surface-variant'
-              }`}
-            >
+            <p className={`mt-3 text-xs font-medium sm:text-sm ${item.active ? 'font-bold text-primary' : 'text-on-surface-variant'}`}>
               {item.label}
             </p>
           </div>
         ))}
       </div>
 
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_320px]">
-        {/* Alert Banner */}
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_340px]">
         <div className="rounded-xl bg-error-container p-4 text-on-error-container sm:p-5 xl:col-span-2">
           <span className="material-symbols-outlined text-error">info</span>
           <div>
             <p className="font-bold text-body-lg">Item Tidak Terdaftar</p>
-            <p className="text-body-md opacity-80">Halaman ini digunakan setelah item tidak ditemukan di master. Request yang dibuat di sini akan masuk ke proses validation lalu approval.</p>
+            <p className="text-body-md opacity-80">
+              Lengkapi request item baru sedetail mungkin agar validator dan approver bisa melihat data item, vendor, harga, dan lampiran secara lengkap.
+            </p>
           </div>
         </div>
 
@@ -121,14 +290,17 @@ function NewItemRequest() {
           </div>
         )}
 
-        {/* Main Form Card */}
         <div className="form-card rounded-xl p-5 shadow-sm sm:p-8">
           <div className="mb-8 flex flex-col gap-4 border-b border-surface-variant pb-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h3 className="font-headline-md text-headline-md text-on-surface">Data Registrasi Item Baru</h3>
-              <p className="text-body-md text-on-surface-variant">Pastikan semua field bertanda bintang (*) diisi dengan benar.</p>
+              <p className="text-body-md text-on-surface-variant">
+                Form ini sekarang menampung detail item lengkap agar tampilan detail request bisa setara dengan detail master item.
+              </p>
             </div>
-            <div className="w-fit rounded-full bg-secondary-container px-3 py-1 text-xs font-bold uppercase text-on-secondary-container">Draft #REQ-8821</div>
+            <div className="w-fit rounded-full bg-secondary-container px-3 py-1 text-xs font-bold uppercase text-on-secondary-container">
+              Draft Lengkap
+            </div>
           </div>
 
           {submitError && (
@@ -138,21 +310,55 @@ function NewItemRequest() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Section: Validasi Part No */}
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="material-symbols-outlined text-primary scale-75">verified_user</span>
-                <h4 className="font-label-md text-label-md uppercase tracking-wide text-primary">Validasi & Identitas</h4>
+            <section>
+              <div className="mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined scale-75 text-primary">verified_user</span>
+                <h4 className="font-label-md text-label-md uppercase tracking-wide text-primary">Validasi, Identitas, dan Spesifikasi</h4>
               </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <div className="space-y-2">
-                  <label className="block font-label-md text-label-md text-on-surface-variant">Validasi Part No *</label>
+                  <label className="block font-label-md text-label-md text-on-surface-variant">Inquiry ID *</label>
+                  <input
+                    type="text"
+                    name="inquiryId"
+                    value={formData.inquiryId}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="Contoh: INQ-2026-00080"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block font-label-md text-label-md text-on-surface-variant">Customer</label>
+                  <input
+                    type="text"
+                    name="customer"
+                    value={formData.customer}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="Nama customer / internal"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block font-label-md text-label-md text-on-surface-variant">Data Status</label>
+                  <select
+                    name="dataStatus"
+                    value={formData.dataStatus}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="Tidak Complete">Tidak Complete</option>
+                    <option value="Complete">Complete</option>
+                    <option value="Pending">Pending</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="block font-label-md text-label-md text-on-surface-variant">Part Number *</label>
                   <input
                     type="text"
                     name="partNo"
                     value={formData.partNo}
                     onChange={handleInputChange}
-                    className="w-full border border-outline-variant rounded-lg p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary bg-white"
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
                     placeholder="Masukkan nomor part"
                   />
                 </div>
@@ -163,23 +369,69 @@ function NewItemRequest() {
                     name="partName"
                     value={formData.partName}
                     onChange={handleInputChange}
-                    className="w-full border border-outline-variant rounded-lg p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary bg-white"
-                    placeholder="Contoh: Brake Pad Front"
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="Contoh: Water Pump"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="block font-label-md text-label-md text-on-surface-variant">Model / Brand *</label>
+                  <label className="block font-label-md text-label-md text-on-surface-variant">Workshop Name</label>
+                  <input
+                    type="text"
+                    name="workshopName"
+                    value={formData.workshopName}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="Contoh: ATPM Workshop"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block font-label-md text-label-md text-on-surface-variant">Brand *</label>
                   <select
                     name="brand"
                     value={formData.brand}
                     onChange={handleInputChange}
-                    className="w-full border border-outline-variant rounded-lg p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary bg-white"
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
                   >
                     <option value="">Pilih Brand</option>
-                    <option value="Toyota">Toyota</option>
-                    <option value="Mitsubishi">Mitsubishi</option>
-                    <option value="Honda">Honda</option>
+                    {brands.map((brand) => (
+                      <option key={brand.id || brand.name} value={brand.name}>
+                        {brand.name}
+                      </option>
+                    ))}
                   </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="block font-label-md text-label-md text-on-surface-variant">Model *</label>
+                  <input
+                    type="text"
+                    name="model"
+                    value={formData.model}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="Contoh: Levante"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block font-label-md text-label-md text-on-surface-variant">Series / Type</label>
+                  <input
+                    type="text"
+                    name="seriesType"
+                    value={formData.seriesType}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="Contoh: S"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block font-label-md text-label-md text-on-surface-variant">Year</label>
+                  <input
+                    type="text"
+                    name="year"
+                    value={formData.year}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="Contoh: 2021"
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="block font-label-md text-label-md text-on-surface-variant">Nomor VIN (Chassis)</label>
@@ -188,56 +440,221 @@ function NewItemRequest() {
                     name="vin"
                     value={formData.vin}
                     onChange={handleInputChange}
-                    className="w-full border border-outline-variant rounded-lg p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary bg-white"
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
                     placeholder="17 digit karakter"
                   />
                 </div>
               </div>
-            </div>
+            </section>
 
-            {/* Section: Media Upload */}
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="material-symbols-outlined text-primary scale-75">image</span>
-                <h4 className="font-label-md text-label-md uppercase tracking-wide text-primary">Foto Item & Lampiran</h4>
+            <section>
+              <div className="mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined scale-75 text-primary">storefront</span>
+                <h4 className="font-label-md text-label-md uppercase tracking-wide text-primary">Vendor, Kategori, dan Harga</h4>
               </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <div className="border-2 border-dashed border-outline-variant rounded-xl p-4 flex flex-col items-center justify-center text-on-surface-variant hover:border-primary hover:text-primary transition-all cursor-pointer group h-40">
-                  <span className="material-symbols-outlined text-4xl mb-2 group-hover:scale-110 transition-transform">add_a_photo</span>
-                  <span className="text-[11px] font-bold">Foto Depan</span>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className="space-y-2 xl:col-span-3">
+                  <label className="block font-label-md text-label-md text-on-surface-variant">Pilih Vendor dari Master</label>
+                  <select
+                    value={selectedVendorOption}
+                    onChange={handleVendorSelect}
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="">Pilih vendor untuk mengisi otomatis Vendor ID / Vendor Name</option>
+                    {vendors.map((vendor) => (
+                      <option key={`${vendor.id}-${vendor.name}`} value={`${vendor.id}||${vendor.name}`}>
+                        {vendor.id ? `${vendor.id} - ` : ''}{vendor.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div className="border-2 border-dashed border-outline-variant rounded-xl p-4 flex flex-col items-center justify-center text-on-surface-variant hover:border-primary transition-all cursor-pointer h-40 overflow-hidden relative group">
-                  <img className="absolute inset-0 w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfY7D7w6zYHOnWl_KFYYrKdi1vhUv0QGew7w91V_yKWIeDBZYSyaeE8R28hGsepsy07kVRqT2s20upbI_kWKmxswSzRcb4WjhGAHsC5F2RyBtCD2nzc77oJKfoeedvRXAH88AKdm-3C11czRLejPm5phpD2HgPzfpymzRLhkhYALYVtibWiZI2Zp5UfhAK7dYImNFKA4QyKZmPEqidx-gCIp9MmCAjJVwJjyfkqEsjCmR_Gjwqp92_5g" alt="Part" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                    <span className="material-symbols-outlined text-white">edit</span>
+                <div className="space-y-2">
+                  <label className="block font-label-md text-label-md text-on-surface-variant">Vendor ID</label>
+                  <input
+                    type="text"
+                    name="vendorId"
+                    value={formData.vendorId}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="Contoh: KWJ"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block font-label-md text-label-md text-on-surface-variant">Vendor Name *</label>
+                  <input
+                    type="text"
+                    name="vendorName"
+                    value={formData.vendorName}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="Nama vendor"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block font-label-md text-label-md text-on-surface-variant">Category Part</label>
+                  <input
+                    type="text"
+                    name="categoryPart"
+                    value={formData.categoryPart}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="Contoh: Brake"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block font-label-md text-label-md text-on-surface-variant">Currency</label>
+                  <input
+                    type="text"
+                    name="currency"
+                    value={formData.currency}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="Contoh: IDR / USD"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block font-label-md text-label-md text-on-surface-variant">ATPM Price</label>
+                  <input
+                    type="text"
+                    name="atpmPrice"
+                    value={formData.atpmPrice}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="Contoh: Barang Non ATPM / 100.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block font-label-md text-label-md text-on-surface-variant">Cost Price</label>
+                  <input
+                    type="text"
+                    name="costPrice"
+                    value={formData.costPrice}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="Contoh: 100.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block font-label-md text-label-md text-on-surface-variant">HPP (IDR)</label>
+                  <input
+                    type="text"
+                    name="hppIdr"
+                    value={formData.hppIdr}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="Contoh: Rp1,794,245"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block font-label-md text-label-md text-on-surface-variant">Update Date</label>
+                  <input
+                    type="date"
+                    name="updateDate"
+                    value={formData.updateDate}
+                    onChange={handleInputChange}
+                    className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <div className="mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined scale-75 text-primary">image</span>
+                <h4 className="font-label-md text-label-md uppercase tracking-wide text-primary">Gambar Item dan Lampiran</h4>
+              </div>
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.4fr)_320px]">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="block font-label-md text-label-md text-on-surface-variant">Upload Gambar Item</label>
+                    <input
+                      type="file"
+                      name="itemImageFile"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md file:mr-4 file:rounded file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:font-medium file:text-primary"
+                    />
+                    {formData.itemImageName && (
+                      <p className="text-xs text-on-surface-variant">File terpilih: {formData.itemImageName}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="block font-label-md text-label-md text-on-surface-variant">URL Gambar Item</label>
+                    <input
+                      type="url"
+                      name="itemImageUrl"
+                      value={formData.itemImageUrl}
+                      onChange={handleInputChange}
+                      className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="block font-label-md text-label-md text-on-surface-variant">Upload Dokumen / Lampiran</label>
+                    <input
+                      type="file"
+                      name="attachmentFile"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
+                      onChange={handleFileUpload}
+                      className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md file:mr-4 file:rounded file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:font-medium file:text-primary"
+                    />
+                    {formData.attachmentName && (
+                      <p className="text-xs text-on-surface-variant">File terpilih: {formData.attachmentName}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="block font-label-md text-label-md text-on-surface-variant">URL Dokumen / Lampiran</label>
+                    <input
+                      type="url"
+                      name="attachmentUrl"
+                      value={formData.attachmentUrl}
+                      onChange={handleInputChange}
+                      className="w-full rounded-lg border border-outline-variant bg-white p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="block font-label-md text-label-md text-on-surface-variant">Catatan</label>
+                    <textarea
+                      name="notes"
+                      value={formData.notes}
+                      onChange={handleInputChange}
+                      rows={4}
+                      className="w-full rounded-lg border border-outline-variant bg-white p-3 text-body-md focus:border-primary focus:ring-1 focus:ring-primary"
+                      placeholder="Tambahkan catatan teknis, remark vendor, atau informasi penting lainnya."
+                    />
                   </div>
                 </div>
-                <div className="border-2 border-dashed border-outline-variant rounded-xl p-4 flex flex-col items-center justify-center text-on-surface-variant hover:border-primary hover:text-primary transition-all cursor-pointer group h-40">
-                  <span className="material-symbols-outlined text-4xl mb-2">cloud_upload</span>
-                  <span className="text-[11px] font-bold">Upload Dokumen</span>
+
+                <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Preview Gambar Item</p>
+                  {formData.itemImageUrl ? (
+                    <img
+                      src={formData.itemImageUrl}
+                      alt={formData.partName || 'Preview item'}
+                      className="mt-3 h-64 w-full rounded-xl object-cover"
+                    />
+                  ) : (
+                    <div className="mt-3 flex h-64 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-outline-variant bg-white text-center text-on-surface-variant">
+                      <span className="material-symbols-outlined text-4xl">image</span>
+                      <p className="mt-2 text-sm font-medium">Belum ada gambar item</p>
+                      <p className="mt-1 max-w-[220px] text-xs">Masukkan URL gambar agar preview dan halaman detail bisa menampilkan foto item.</p>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
+            </section>
 
-            {/* Section: Approval Preview */}
-            <div className="bg-surface-container-low p-6 rounded-xl border border-outline-variant/30">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="material-symbols-outlined text-primary scale-75">assignment_turned_in</span>
+            <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined scale-75 text-primary">assignment_turned_in</span>
                 <h4 className="font-label-md text-label-md uppercase tracking-wide text-primary">Alur Approval</h4>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="flex -space-x-3 overflow-hidden">
-                  <div className="inline-block h-10 w-10 rounded-full border-2 border-white bg-on-primary-fixed flex items-center justify-center text-white text-xs font-bold">AM</div>
-                  <div className="inline-block h-10 w-10 rounded-full border-2 border-white bg-on-tertiary-fixed-variant flex items-center justify-center text-white text-xs font-bold">SK</div>
-                  <div className="inline-block h-10 w-10 rounded-full border-2 border-white bg-secondary flex items-center justify-center text-white text-xs font-bold">PL</div>
-                </div>
-                <div className="text-body-md">
-                  <span className="font-bold">Area Requests</span> akan menampilkan status validation dan approval setelah request dikirim.
-                </div>
-              </div>
-            </div>
+              <p className="text-body-md text-on-surface-variant">
+                Setelah request dikirim, detail item lengkap termasuk vendor, harga, dan gambar akan tampil di area `Requests` untuk validation dan approval.
+              </p>
+            </section>
 
-            {/* Actions */}
             <div className="flex flex-col-reverse gap-3 pt-6 sm:flex-row sm:items-center sm:justify-end">
               <button
                 type="button"
@@ -249,7 +666,7 @@ function NewItemRequest() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`w-full justify-center rounded px-8 py-2.5 text-white font-bold shadow-lg transition-all hover:shadow-xl sm:w-auto ${submitSuccess ? 'bg-green-600' : 'bg-primary-container'} flex items-center gap-2`}
+                className={`flex w-full items-center justify-center gap-2 rounded px-8 py-2.5 font-bold text-white shadow-lg transition-all hover:shadow-xl sm:w-auto ${submitSuccess ? 'bg-green-600' : 'bg-primary-container'}`}
               >
                 {isSubmitting ? (
                   <>
@@ -263,7 +680,7 @@ function NewItemRequest() {
                   </>
                 ) : (
                   <>
-                    <span>Kirim Request</span>
+                    <span>Kirim Request Lengkap</span>
                     <span className="material-symbols-outlined">send</span>
                   </>
                 )}
@@ -272,46 +689,47 @@ function NewItemRequest() {
           </form>
         </div>
 
-        {/* Sidebar Info / Helper */}
         <div className="space-y-6">
-          <div className="form-card p-6 rounded-xl">
-            <h5 className="font-label-md text-label-md mb-4 flex items-center gap-2">
+          <div className="form-card rounded-xl p-6">
+            <h5 className="mb-4 flex items-center gap-2 font-label-md text-label-md">
               <span className="material-symbols-outlined text-on-tertiary-fixed-variant">lightbulb</span>
               Panduan Pengisian
             </h5>
             <ul className="space-y-4 text-body-md text-on-surface-variant">
               <li className="flex gap-3">
-                <span className="text-primary font-bold">•</span>
-                <p>Gunakan format <span className="font-mono text-xs bg-surface-container px-1">AAA-000-XX</span> untuk Part No yang belum tervalidasi.</p>
+                <span className="font-bold text-primary">•</span>
+                <p>Isi `Vendor Name`, `Category Part`, dan harga sedekat mungkin dengan referensi vendor yang tersedia.</p>
               </li>
               <li className="flex gap-3">
-                <span className="text-primary font-bold">•</span>
-                <p>Lampirkan minimal satu foto fisik item yang jelas dengan pencahayaan cukup.</p>
+                <span className="font-bold text-primary">•</span>
+                <p>Anda bisa upload file langsung atau isi URL manual untuk gambar dan lampiran.</p>
               </li>
               <li className="flex gap-3">
-                <span className="text-primary font-bold">•</span>
-                <p>Pastikan Nomor VIN sesuai dengan katalog brand untuk mempercepat verifikasi.</p>
+                <span className="font-bold text-primary">•</span>
+                <p>Jika vendor dipilih dari master vendor, `Vendor ID` dan `Vendor Name` akan terisi lebih cepat.</p>
               </li>
             </ul>
           </div>
-          <div className="form-card p-6 rounded-xl bg-on-primary-fixed/5 border-primary/20">
-            <h5 className="font-label-md text-label-md mb-4 text-primary">History Pencarian Terakhir</h5>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-xs p-2 bg-white rounded border border-outline-variant/30">
-                <span className="font-bold">P-882-AB-21</span>
-                <span className="text-error font-bold italic">Not Found</span>
+
+          <div className="form-card rounded-xl border-primary/20 bg-on-primary-fixed/5 p-6">
+            <h5 className="mb-4 font-label-md text-label-md text-primary">Ringkasan Draft</h5>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between gap-4 rounded border border-outline-variant/30 bg-white p-3">
+                <span className="text-on-surface-variant">Part</span>
+                <span className="text-right font-semibold text-on-surface">{formData.partName || '-'}</span>
               </div>
-              <div className="flex justify-between items-center text-xs p-2 bg-white rounded border border-outline-variant/30">
-                <span className="font-bold">M-771-ZY-00</span>
-                <span className="text-error font-bold italic">Not Found</span>
+              <div className="flex justify-between gap-4 rounded border border-outline-variant/30 bg-white p-3">
+                <span className="text-on-surface-variant">Vendor</span>
+                <span className="text-right font-semibold text-on-surface">{formData.vendorName || '-'}</span>
               </div>
-            </div>
-          </div>
-          <div className="relative h-48 overflow-hidden rounded-xl shadow-md group">
-            <img className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBeWlLuC0GSomWJKDHngyTBRpCtPJZoZ4TOSvZ3zpwtxYWE8odbgz6C1AAYgYMKPHmMxHdsacRvO-zuk1NgFpebLDa_PzXsoc3bH_PLhLsM5Udf2RXqLuXpaqb7Uh8BLq07wDQrvaTRIOiKGzsmWumCPXumBeZM9OBM661Yjnaypij6ur6sERZH9OmbyUJdibf1CesZQGMlAcVQcbiQSwzo6IugwrPGWs_CFCjDj3_3-o_kPHrDr_Dx7Q" alt="Logistics" />
-            <div className="absolute inset-0 bg-gradient-to-t from-primary/80 to-transparent p-4 flex flex-col justify-end">
-              <p className="text-white font-bold text-xs">Modern Logistics Infrastructure</p>
-              <p className="text-white/70 text-[10px]">Trusted by global enterprise partners.</p>
+              <div className="flex justify-between gap-4 rounded border border-outline-variant/30 bg-white p-3">
+                <span className="text-on-surface-variant">Harga</span>
+                <span className="text-right font-semibold text-on-surface">{formData.hppIdr || formData.costPrice || formData.atpmPrice || '-'}</span>
+              </div>
+              <div className="flex justify-between gap-4 rounded border border-outline-variant/30 bg-white p-3">
+                <span className="text-on-surface-variant">Gambar</span>
+                <span className="text-right font-semibold text-on-surface">{formData.itemImageUrl ? (formData.itemImageName || 'Siap ditampilkan') : 'Belum ada'}</span>
+              </div>
             </div>
           </div>
         </div>

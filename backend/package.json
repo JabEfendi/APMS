@@ -6,6 +6,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "migrate": "node migrate-schema.js",
+    "import:csv": "node import-csv.js",
+    "bootstrap:supabase": "node migrate-schema.js && node import-csv.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

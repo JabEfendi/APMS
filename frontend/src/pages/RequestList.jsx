@@ -97,6 +97,14 @@ function RequestList() {
     return (user.role === 'approver' || user.role === 'admin') && status === 'approval'
   }
 
+  const formatCompactValue = (value) => {
+    if (value === null || value === undefined || value === '') {
+      return '-'
+    }
+
+    return String(value)
+  }
+
   if (loading) {
     return (
       <div className="p-margin-edge flex items-center justify-center h-96">
@@ -173,6 +181,8 @@ function RequestList() {
                   <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Part No</th>
                   <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Part Name</th>
                   <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Brand</th>
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Vendor</th>
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">HPP</th>
                   <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Status</th>
                   <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Tanggal</th>
                   <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Aksi</th>
@@ -185,6 +195,8 @@ function RequestList() {
                     <td className="px-6 py-4 font-mono">{request.part_no || request.partNumber || '-'}</td>
                     <td className="px-6 py-4">{request.part_name}</td>
                     <td className="px-6 py-4">{request.brand}</td>
+                    <td className="px-6 py-4">{formatCompactValue(request.vendor_name)}</td>
+                    <td className="px-6 py-4">{formatCompactValue(request.hpp_idr || request.cost_price || request.atpm_price)}</td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getStatusColor(request.status)}`}>
                         {request.status}

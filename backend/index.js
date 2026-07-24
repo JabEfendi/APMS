@@ -23,7 +23,7 @@ app.use(cors({
     },
     credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
 
 const ensureBrandsTable = async () => {
     await pool.query(`
@@ -68,11 +68,32 @@ const ensureNewItemRequestsTable = async () => {
         CREATE TABLE IF NOT EXISTS new_item_requests (
             id SERIAL PRIMARY KEY,
             request_number VARCHAR(255) NOT NULL,
+            inquiry_id VARCHAR(255),
+            customer VARCHAR(255),
             part_no VARCHAR(255),
             part_name VARCHAR(255),
             brand VARCHAR(255),
             model VARCHAR(255),
+            series_type VARCHAR(255),
+            year VARCHAR(50),
+            workshop_name VARCHAR(255),
             vin VARCHAR(255),
+            data_status VARCHAR(255),
+            vendor_id VARCHAR(255),
+            vendor_name VARCHAR(255),
+            category_part VARCHAR(255),
+            currency VARCHAR(50),
+            atpm_price VARCHAR(255),
+            cost_price VARCHAR(255),
+            hpp_idr VARCHAR(255),
+            update_date VARCHAR(50),
+            item_image_url TEXT,
+            item_image_name VARCHAR(255),
+            item_image_mime_type VARCHAR(255),
+            attachment_url TEXT,
+            attachment_name VARCHAR(255),
+            attachment_mime_type VARCHAR(255),
+            notes TEXT,
             status VARCHAR(255) DEFAULT 'validation',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -80,11 +101,32 @@ const ensureNewItemRequestsTable = async () => {
     `);
 
     await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS request_number VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS inquiry_id VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS customer VARCHAR(255)`);
     await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS part_no VARCHAR(255)`);
     await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS part_name VARCHAR(255)`);
     await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS brand VARCHAR(255)`);
     await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS model VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS series_type VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS year VARCHAR(50)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS workshop_name VARCHAR(255)`);
     await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS vin VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS data_status VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS vendor_id VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS vendor_name VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS category_part VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS currency VARCHAR(50)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS atpm_price VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS cost_price VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS hpp_idr VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS update_date VARCHAR(50)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS item_image_url TEXT`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS item_image_name VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS item_image_mime_type VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS attachment_url TEXT`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS attachment_name VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS attachment_mime_type VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS notes TEXT`);
     await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS status VARCHAR(255) DEFAULT 'validation'`);
     await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS validated_by INTEGER`);
     await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS validated_at TIMESTAMP`);
@@ -383,17 +425,105 @@ app.get('/api/stats', async (req, res) => {
 // POST endpoint for new item request
 app.post('/api/new-item-request', async (req, res) => {
     try {
-        const { partNo, partName, brand, model, vin } = req.body;
+        const {
+            inquiryId,
+            customer,
+            partNo,
+            partName,
+            brand,
+            model,
+            seriesType,
+            year,
+            workshopName,
+            vin,
+            dataStatus,
+            vendorId,
+            vendorName,
+            categoryPart,
+            currency,
+            atpmPrice,
+            costPrice,
+            hppIdr,
+            updateDate,
+            itemImageUrl,
+            itemImageName,
+            itemImageMimeType,
+            attachmentUrl,
+            attachmentName,
+            attachmentMimeType,
+            notes
+        } = req.body;
 
-        if (!partNo || !partName || !brand) {
-            return res.status(400).json({ error: 'Part number, part name, and brand are required' });
+        if (!inquiryId || !partNo || !partName || !brand || !model || !vendorName) {
+            return res.status(400).json({ error: 'Inquiry ID, part number, part name, brand, model, and vendor are required' });
         }
 
         const requestNumber = `REQ-${Date.now()}`;
 
         const result = await pool.query(
-            `INSERT INTO new_item_requests (request_number, part_no, part_name, brand, model, vin, status) VALUES ($1, $2, $3, $4, $5, $6, 'validation') RETURNING *`,
-            [requestNumber, partNo, partName, brand, model || null, vin || null]
+            `INSERT INTO new_item_requests (
+                request_number,
+                inquiry_id,
+                customer,
+                part_no,
+                part_name,
+                brand,
+                model,
+                series_type,
+                year,
+                workshop_name,
+                vin,
+                data_status,
+                vendor_id,
+                vendor_name,
+                category_part,
+                currency,
+                atpm_price,
+                cost_price,
+                hpp_idr,
+                update_date,
+                item_image_url,
+                item_image_name,
+                item_image_mime_type,
+                attachment_url,
+                attachment_name,
+                attachment_mime_type,
+                notes,
+                status
+            )
+             VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, 'validation'
+             )
+             RETURNING *`,
+            [
+                requestNumber,
+                inquiryId,
+                customer || null,
+                partNo,
+                partName,
+                brand,
+                model,
+                seriesType || null,
+                year || null,
+                workshopName || null,
+                vin || null,
+                dataStatus || null,
+                vendorId || null,
+                vendorName,
+                categoryPart || null,
+                currency || null,
+                atpmPrice || null,
+                costPrice || null,
+                hppIdr || null,
+                updateDate || null,
+                itemImageUrl || null,
+                itemImageName || null,
+                itemImageMimeType || null,
+                attachmentUrl || null,
+                attachmentName || null,
+                attachmentMimeType || null,
+                notes || null
+            ]
         );
 
         res.json(result.rows[0]);
