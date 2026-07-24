@@ -7,6 +7,10 @@ import AppWrapper from './App.jsx'
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001').replace(/\/$/, '')
 axios.defaults.baseURL = apiBaseUrl
 
+if (apiBaseUrl.includes('ngrok-free.app') || apiBaseUrl.includes('ngrok-free.dev')) {
+  axios.defaults.headers.common['ngrok-skip-browser-warning'] = '1'
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AppWrapper />
