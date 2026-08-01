@@ -392,7 +392,11 @@ function RequestDetail() {
 
       const result = await axios.put(endpoint, { action })
       setRequest(result.data)
-      setWorkflowMessage('Tahap proses item request berhasil diperbarui.')
+      setWorkflowMessage(
+        type === 'approve' && action === 'approve'
+          ? 'Item request berhasil di-approve dan sudah masuk ke menu Inquiry.'
+          : 'Tahap proses item request berhasil diperbarui.'
+      )
     } catch (err) {
       console.error(err)
       setWorkflowMessage(err.response?.data?.error || 'Gagal memperbarui tahap proses item request.')

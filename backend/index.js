@@ -83,6 +83,11 @@ const INQUIRY_SALES_HIDDEN_FIELDS = [
     'No__PO',
     'PO_Date'
 ];
+const INQUIRY_INTERNAL_FIELDS = [
+    'Source_Request_Id',
+    'Source_Request_Number',
+    'Request_Workflow_Status'
+];
 
 const REQUEST_SALES_EDITABLE_FIELD_MAP = {
     inquiryId: 'inquiry_id',
@@ -195,11 +200,13 @@ const sanitizeInquiryRow = (row, role) => {
         return row;
     }
 
+    const sanitizedRow = omitFields(row, INQUIRY_INTERNAL_FIELDS);
+
     if (isSalesRole(role)) {
-        return omitFields(row, INQUIRY_SALES_HIDDEN_FIELDS);
+        return omitFields(sanitizedRow, INQUIRY_SALES_HIDDEN_FIELDS);
     }
 
-    return row;
+    return sanitizedRow;
 };
 
 const normalizeFileEntry = (file) => {
@@ -419,6 +426,256 @@ const calculateHppIdr = (costPrice) => {
     return String(parsedCost);
 };
 
+const calculateTotalHpp = (hppValue, quantity) => {
+    const parsedHpp = parseNumericInput(hppValue);
+    const parsedQuantity = parseNumericInput(quantity);
+
+    if (parsedHpp === null || parsedQuantity === null) {
+        return null;
+    }
+
+    return String(parsedHpp * parsedQuantity);
+};
+
+const calculateAgingDaysFromDate = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    const parsedDate = new Date(value);
+    if (Number.isNaN(parsedDate.getTime())) {
+        return null;
+    }
+
+    return String(Math.max(0, Math.floor((Date.now() - parsedDate.getTime()) / (1000 * 60 * 60 * 24))));
+};
+
+const syncApprovedRequestToInquiry = async (client, requestRow, actingUser = null) => {
+    if (!requestRow || requestRow.status !== 'approved') {
+        return null;
+    }
+
+    const sourceRequestId = requestRow.id;
+    const inquiryPayload = {
+        dataStatus: requestRow.data_status || 'Complete',
+        salesName: requestRow.sales_name || null,
+        inquiryId: requestRow.inquiry_id || null,
+        purchasingOfficer: actingUser?.username || null,
+        inquiryDate: requestRow.inquiry_date || null,
+        agingDays: calculateAgingDaysFromDate(requestRow.inquiry_date || requestRow.created_at),
+        customerType: requestRow.customer_type || null,
+        customerName: requestRow.customer || null,
+        partNumber: requestRow.part_no || null,
+        workshopPartName: null,
+        partName: requestRow.part_name || null,
+        brand: requestRow.brand || null,
+        model: requestRow.model || null,
+        year: requestRow.year || null,
+        atpmPrice: requestRow.atpm_price || null,
+        uom: requestRow.uom || null,
+        progressNotes: requestRow.progress_notes || requestRow.notes || null,
+        itemStatus: 'Approved',
+        statusReason: requestRow.status_reason || null,
+        vendorId: requestRow.vendor_id || null,
+        vendorName: requestRow.vendor_name || null,
+        hpp: requestRow.hpp_idr || null,
+        categoryPart: requestRow.category_part || null,
+        totalHpp: calculateTotalHpp(requestRow.hpp_idr, requestRow.quantity),
+        sellingPrice: requestRow.selling_price || null,
+        diskon: null,
+        sellingPriceAfterDisc: requestRow.selling_price || null,
+        finalSellingPrice: requestRow.selling_price || null,
+        checklistPo: requestRow.po_process || null,
+        poNumber: requestRow.po_number || null,
+        poDate: requestRow.po_date || null,
+        procurementNameFix: actingUser?.username || null,
+        idFix: requestRow.vendor_id || null,
+        salesNameFix: requestRow.sales_name || null,
+        sourceRequestNumber: requestRow.request_number || null,
+        workflowStatus: requestRow.status || null
+    };
+
+    const existingInquiryResult = await client.query(
+        'SELECT id FROM "DATA_INQUIRY" WHERE "Source_Request_Id" = $1 LIMIT 1',
+        [sourceRequestId]
+    );
+
+    if (existingInquiryResult.rows.length > 0) {
+        const inquiryId = existingInquiryResult.rows[0].id;
+        const updateResult = await client.query(
+            `UPDATE "DATA_INQUIRY"
+             SET "Data_Status" = $1,
+                 "Sales_Name" = $2,
+                 "Inquiry_ID" = $3,
+                 "Purchasing_Officer" = $4,
+                 "Inquiry_Date" = $5,
+                 "Aging__Days_" = $6,
+                 "Customer_Type" = $7,
+                 "Customer_Name" = $8,
+                 "Part_Number" = $9,
+                 "Workshop_Part_Name" = $10,
+                 "Part_Name" = $11,
+                 "Brand" = $12,
+                 "Model" = $13,
+                 "Year" = $14,
+                 "ATPM_Price" = $15,
+                 "UOM" = $16,
+                 "Progress_Notes" = $17,
+                 "Item_Status" = $18,
+                 "Status_Reason" = $19,
+                 "Vendor_ID" = $20,
+                 "Vendor_Name" = $21,
+                 "HPP" = $22,
+                 "Category_Part" = $23,
+                 "Total_HPP" = $24,
+                 "Selling_Price" = $25,
+                 "Diskon__" = $26,
+                 "Selling_Price_After_Disc_" = $27,
+                 "Final_Selling_Price" = $28,
+                 "Checklist_PO" = $29,
+                 "No__PO" = $30,
+                 "PO_Date" = $31,
+                 "PROCUREMNT_NAME_FIX" = $32,
+                 "ID_FIX" = $33,
+                 "SALES_NAME_FIX" = $34,
+                 "Source_Request_Number" = $35,
+                 "Request_Workflow_Status" = $36
+             WHERE id = $37
+             RETURNING *`,
+            [
+                inquiryPayload.dataStatus,
+                inquiryPayload.salesName,
+                inquiryPayload.inquiryId,
+                inquiryPayload.purchasingOfficer,
+                inquiryPayload.inquiryDate,
+                inquiryPayload.agingDays,
+                inquiryPayload.customerType,
+                inquiryPayload.customerName,
+                inquiryPayload.partNumber,
+                inquiryPayload.workshopPartName,
+                inquiryPayload.partName,
+                inquiryPayload.brand,
+                inquiryPayload.model,
+                inquiryPayload.year,
+                inquiryPayload.atpmPrice,
+                inquiryPayload.uom,
+                inquiryPayload.progressNotes,
+                inquiryPayload.itemStatus,
+                inquiryPayload.statusReason,
+                inquiryPayload.vendorId,
+                inquiryPayload.vendorName,
+                inquiryPayload.hpp,
+                inquiryPayload.categoryPart,
+                inquiryPayload.totalHpp,
+                inquiryPayload.sellingPrice,
+                inquiryPayload.diskon,
+                inquiryPayload.sellingPriceAfterDisc,
+                inquiryPayload.finalSellingPrice,
+                inquiryPayload.checklistPo,
+                inquiryPayload.poNumber,
+                inquiryPayload.poDate,
+                inquiryPayload.procurementNameFix,
+                inquiryPayload.idFix,
+                inquiryPayload.salesNameFix,
+                inquiryPayload.sourceRequestNumber,
+                inquiryPayload.workflowStatus,
+                inquiryId
+            ]
+        );
+
+        return updateResult.rows[0];
+    }
+
+    const insertResult = await client.query(
+        `INSERT INTO "DATA_INQUIRY" (
+            "Data_Status",
+            "Sales_Name",
+            "Inquiry_ID",
+            "Purchasing_Officer",
+            "Inquiry_Date",
+            "Aging__Days_",
+            "Customer_Type",
+            "Customer_Name",
+            "Part_Number",
+            "Workshop_Part_Name",
+            "Part_Name",
+            "Brand",
+            "Model",
+            "Year",
+            "ATPM_Price",
+            "UOM",
+            "Progress_Notes",
+            "Item_Status",
+            "Status_Reason",
+            "Vendor_ID",
+            "Vendor_Name",
+            "HPP",
+            "Category_Part",
+            "Total_HPP",
+            "Selling_Price",
+            "Diskon__",
+            "Selling_Price_After_Disc_",
+            "Final_Selling_Price",
+            "Checklist_PO",
+            "No__PO",
+            "PO_Date",
+            "PROCUREMNT_NAME_FIX",
+            "ID_FIX",
+            "SALES_NAME_FIX",
+            "Source_Request_Id",
+            "Source_Request_Number",
+            "Request_Workflow_Status"
+        )
+        VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
+            $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34,
+            $35, $36, $37
+        )
+        RETURNING *`,
+        [
+            inquiryPayload.dataStatus,
+            inquiryPayload.salesName,
+            inquiryPayload.inquiryId,
+            inquiryPayload.purchasingOfficer,
+            inquiryPayload.inquiryDate,
+            inquiryPayload.agingDays,
+            inquiryPayload.customerType,
+            inquiryPayload.customerName,
+            inquiryPayload.partNumber,
+            inquiryPayload.workshopPartName,
+            inquiryPayload.partName,
+            inquiryPayload.brand,
+            inquiryPayload.model,
+            inquiryPayload.year,
+            inquiryPayload.atpmPrice,
+            inquiryPayload.uom,
+            inquiryPayload.progressNotes,
+            inquiryPayload.itemStatus,
+            inquiryPayload.statusReason,
+            inquiryPayload.vendorId,
+            inquiryPayload.vendorName,
+            inquiryPayload.hpp,
+            inquiryPayload.categoryPart,
+            inquiryPayload.totalHpp,
+            inquiryPayload.sellingPrice,
+            inquiryPayload.diskon,
+            inquiryPayload.sellingPriceAfterDisc,
+            inquiryPayload.finalSellingPrice,
+            inquiryPayload.checklistPo,
+            inquiryPayload.poNumber,
+            inquiryPayload.poDate,
+            inquiryPayload.procurementNameFix,
+            inquiryPayload.idFix,
+            inquiryPayload.salesNameFix,
+            sourceRequestId,
+            inquiryPayload.sourceRequestNumber,
+            inquiryPayload.workflowStatus
+        ]
+    );
+
+    return insertResult.rows[0];
+};
+
 const buildUpdateStatement = (fieldMap, payload = {}) => {
     const setClauses = [];
     const values = [];
@@ -607,6 +864,12 @@ const ensureVendorPriceExtensions = async () => {
     await pool.query(`ALTER TABLE "VENDOR_PRICE" ADD COLUMN IF NOT EXISTS "Stock_Status" VARCHAR(255)`);
     await pool.query(`ALTER TABLE "VENDOR_PRICE" ADD COLUMN IF NOT EXISTS "Stock_Qty" INTEGER`);
     await pool.query(`ALTER TABLE "VENDOR_PRICE" ADD COLUMN IF NOT EXISTS "Selling_Price" VARCHAR(255)`);
+};
+
+const ensureDataInquiryExtensions = async () => {
+    await pool.query(`ALTER TABLE "DATA_INQUIRY" ADD COLUMN IF NOT EXISTS "Source_Request_Id" INTEGER`);
+    await pool.query(`ALTER TABLE "DATA_INQUIRY" ADD COLUMN IF NOT EXISTS "Source_Request_Number" VARCHAR(255)`);
+    await pool.query(`ALTER TABLE "DATA_INQUIRY" ADD COLUMN IF NOT EXISTS "Request_Workflow_Status" VARCHAR(255)`);
 };
 
 // Helper function to get table name from slug
@@ -1139,6 +1402,8 @@ app.put('/api/requests/:id/validate', authenticateToken, async (req, res) => {
 
 // Approve request endpoint (for approvers)
 app.put('/api/requests/:id/approve', authenticateToken, async (req, res) => {
+    const client = await pool.connect();
+
     try {
         const { id } = req.params;
         const { action } = req.body; // 'approve' or 'reject'
@@ -1156,19 +1421,30 @@ app.put('/api/requests/:id/approve', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Invalid action' });
         }
         
-        const result = await pool.query(
+        await client.query('BEGIN');
+
+        const result = await client.query(
             'UPDATE new_item_requests SET status = $1, approved_by = $2, approved_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *',
             [newStatus, req.user.id, id]
         );
         
         if (result.rows.length === 0) {
+            await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Request not found' });
         }
         
-        res.json(result.rows[0]);
+        if (newStatus === 'approved') {
+            await syncApprovedRequestToInquiry(client, result.rows[0], req.user);
+        }
+
+        await client.query('COMMIT');
+        res.json(sanitizeRequestRow(result.rows[0], req.user.role));
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error(err.message);
         res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
     }
 });
 
@@ -1565,11 +1841,12 @@ app.get('/api/:tableSlug', authenticateToken, async (req, res) => {
     }
 });
 
-Promise.all([syncBrandsTable(), ensureUsersRoleCompatibility(), ensureNewItemRequestsTable(), ensureVendorPriceExtensions()])
+Promise.all([syncBrandsTable(), ensureUsersRoleCompatibility(), ensureNewItemRequestsTable(), ensureVendorPriceExtensions(), ensureDataInquiryExtensions()])
     .then(() => {
         console.log('Brand master synchronized');
         console.log('Request table synchronized');
         console.log('Vendor price extensions synchronized');
+        console.log('Inquiry extensions synchronized');
     })
     .catch((err) => {
         console.error('Failed to synchronize brand master:', err.message);
