@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -13,6 +13,77 @@ function readFileAsDataUrl(file) {
   })
 }
 
+function createEmptyRequestItem() {
+  return {
+    partNumber: '',
+    partName: '',
+    brand: '',
+    model: '',
+    seriesType: '',
+    year: '',
+    vin: '',
+    quantity: 1,
+    uom: 'PCS',
+    itemImages: []
+  }
+}
+
+async function readFilesAsEntries(files) {
+  return Promise.all(
+    Array.from(files || []).map(async (file) => ({
+      url: await readFileAsDataUrl(file),
+      name: file.name,
+      mimeType: file.type || 'application/octet-stream'
+    }))
+  )
+}
+
+function getPrimaryImageFields(itemImages = []) {
+  const firstImage = itemImages[0]
+
+  return {
+    itemImageUrl: firstImage?.url || '',
+    itemImageName: firstImage?.name || '',
+    itemImageMimeType: firstImage?.mimeType || ''
+  }
+}
+
+function normalizeItemImages(value, fallbackUrl = '', fallbackName = '', fallbackMimeType = '') {
+  if (Array.isArray(value) && value.length > 0) {
+    return value
+      .map((item) => ({
+        url: item?.url || '',
+        name: item?.name || '',
+        mimeType: item?.mimeType || ''
+      }))
+      .filter((item) => item.url)
+  }
+
+  if (fallbackUrl) {
+    return [{
+      url: fallbackUrl,
+      name: fallbackName || '',
+      mimeType: fallbackMimeType || ''
+    }]
+  }
+
+  return []
+}
+
+function getRequestItemSummary(item = {}) {
+  const title = item.partName || 'Nama part belum diisi'
+  const vehicle = [item.brand, item.model].filter(Boolean).join(' / ') || 'Brand dan model belum diisi'
+  const qty = `Qty ${item.quantity || 1} ${item.uom || 'PCS'}`
+  const imageCount = item.itemImages?.length ? `${item.itemImages.length} gambar` : 'Belum ada gambar'
+
+  return {
+    title,
+    vehicle,
+    qty,
+    imageCount
+  }
+}
+
 function InputInquiry() {
   const navigate = useNavigate()
   const { id } = useParams()
@@ -24,6 +95,9 @@ function InputInquiry() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loadingRequest, setLoadingRequest] = useState(false)
   const [submitMessage, setSubmitMessage] = useState({ type: '', text: '' })
+  const [requestItems, setRequestItems] = useState([createEmptyRequestItem()])
+  const [expandedItems, setExpandedItems] = useState([true])
+  const requestItemRefs = useRef([])
   const [formData, setFormData] = useState({
     inquiryId: '',
     inquiryDate: new Date().toISOString().split('T')[0],
@@ -55,6 +129,7 @@ function InputInquiry() {
     sellingPrice: '',
     updateDate: new Date().toISOString().split('T')[0],
     notes: '',
+    itemImages: [],
     itemImageUrl: '',
     itemImageName: '',
     itemImageMimeType: '',
@@ -126,6 +201,7 @@ function InputInquiry() {
           sellingPrice: request.selling_price || '',
           updateDate: request.update_date || new Date().toISOString().split('T')[0],
           notes: request.notes || '',
+          itemImages: normalizeItemImages(request.item_images, request.item_image_url, request.item_image_name, request.item_image_mime_type),
           itemImageUrl: request.item_image_url || '',
           itemImageName: request.item_image_name || '',
           itemImageMimeType: request.item_image_mime_type || '',
@@ -163,28 +239,88 @@ function InputInquiry() {
     }))
   }
 
+  const handleRequestItemChange = (index, e) => {
+    const { name, value, type } = e.target
+
+    setRequestItems((prev) => prev.map((item, itemIndex) => {
+      if (itemIndex !== index) {
+        return item
+      }
+
+      return {
+        ...item,
+        [name]: type === 'number' ? Number(value) : value
+      }
+    }))
+  }
+
+  const addRequestItem = () => {
+    const nextIndex = requestItems.length
+    setRequestItems((prev) => [...prev, createEmptyRequestItem()])
+    setExpandedItems((prev) => [...prev.map(() => false), true])
+
+    window.setTimeout(() => {
+      const nextItemContainer = requestItemRefs.current[nextIndex]
+      nextItemContainer?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      nextItemContainer?.querySelector('input, select, textarea')?.focus()
+    }, 120)
+  }
+
+  const removeRequestItem = (index) => {
+    setRequestItems((prev) => (
+      prev.length === 1
+        ? prev
+        : prev.filter((_, itemIndex) => itemIndex !== index)
+    ))
+    setExpandedItems((prev) => (
+      prev.length === 1
+        ? prev
+        : prev.filter((_, itemIndex) => itemIndex !== index)
+    ))
+  }
+
+  const toggleRequestItem = (index) => {
+    setExpandedItems((prev) => prev.map((isExpanded, itemIndex) => (
+      itemIndex === index ? !isExpanded : isExpanded
+    )))
+  }
+
+  const removeRequestItemImage = (itemIndex, imageIndex) => {
+    setRequestItems((prev) => prev.map((item, currentIndex) => {
+      if (currentIndex !== itemIndex) {
+        return item
+      }
+
+      return {
+        ...item,
+        itemImages: item.itemImages.filter((_, currentImageIndex) => currentImageIndex !== imageIndex)
+      }
+    }))
+  }
+
   const handleFileUpload = async (e) => {
     const { name, files } = e.target
-    const selectedFile = files?.[0]
-
-    if (!selectedFile) {
+    if (!files?.length) {
       return
     }
 
     try {
-      const dataUrl = await readFileAsDataUrl(selectedFile)
-
       if (name === 'itemImageFile') {
+        const uploadedImages = await readFilesAsEntries(files)
+        const mergedImages = [...formData.itemImages, ...uploadedImages]
+        const primaryImageFields = getPrimaryImageFields(mergedImages)
+
         setFormData((prev) => ({
           ...prev,
-          itemImageUrl: dataUrl,
-          itemImageName: selectedFile.name,
-          itemImageMimeType: selectedFile.type || 'application/octet-stream'
+          itemImages: mergedImages,
+          ...primaryImageFields
         }))
         return
       }
 
       if (name === 'attachmentFile') {
+        const selectedFile = files[0]
+        const dataUrl = await readFileAsDataUrl(selectedFile)
         setFormData((prev) => ({
           ...prev,
           attachmentUrl: dataUrl,
@@ -201,13 +337,69 @@ function InputInquiry() {
     }
   }
 
+  const handleRequestItemImageUpload = async (index, e) => {
+    const { files } = e.target
+
+    if (!files?.length) {
+      return
+    }
+
+    try {
+      const uploadedImages = await readFilesAsEntries(files)
+      setRequestItems((prev) => prev.map((item, itemIndex) => {
+        if (itemIndex !== index) {
+          return item
+        }
+
+        return {
+          ...item,
+          itemImages: [...item.itemImages, ...uploadedImages]
+        }
+      }))
+    } catch (err) {
+      console.error(err)
+      setSubmitMessage({
+        type: 'error',
+        text: 'File gambar gagal dibaca. Silakan pilih file lain.'
+      })
+    }
+  }
+
+  const removeSingleItemImage = (imageIndex) => {
+    const nextImages = formData.itemImages.filter((_, currentImageIndex) => currentImageIndex !== imageIndex)
+    const primaryImageFields = getPrimaryImageFields(nextImages)
+
+    setFormData((prev) => ({
+      ...prev,
+      itemImages: nextImages,
+      ...primaryImageFields
+    }))
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!formData.inquiryId || !formData.inquiryDate || !formData.salesName || !formData.customer || !formData.brand || !formData.model || !formData.partName) {
+    if (!formData.inquiryId || !formData.inquiryDate || !formData.salesName || !formData.customer) {
       setSubmitMessage({
         type: 'error',
-        text: 'Lengkapi Inquiry ID, Inquiry Date, Sales Name, Customer Name, Nama Part, Brand, dan Model.'
+        text: 'Lengkapi Inquiry ID, Inquiry Date, Sales Name, dan Customer Name.'
+      })
+      return
+    }
+
+    if (!isEditMode) {
+      const hasInvalidItem = requestItems.some((item) => !item.partName || !item.brand || !item.model)
+      if (hasInvalidItem) {
+        setSubmitMessage({
+          type: 'error',
+          text: 'Setiap item wajib memiliki Nama Part, Brand, dan Model.'
+        })
+        return
+      }
+    } else if (!formData.brand || !formData.model || !formData.partName) {
+      setSubmitMessage({
+        type: 'error',
+        text: 'Lengkapi Nama Part, Brand, dan Model pada item yang sedang diedit.'
       })
       return
     }
@@ -246,6 +438,7 @@ function InputInquiry() {
         costPrice: canManagePricing ? formData.costPrice : '',
         sellingPrice: canManagePricing ? formData.sellingPrice : '',
         updateDate: formData.updateDate,
+        itemImages: formData.itemImages,
         itemImageUrl: formData.itemImageUrl,
         itemImageName: formData.itemImageName,
         itemImageMimeType: formData.itemImageMimeType,
@@ -258,6 +451,9 @@ function InputInquiry() {
       if (isEditMode) {
         await axios.put(`/api/requests/${id}`, payload)
       } else {
+        payload.requestItems = requestItems.map((item) => ({
+          ...item
+        }))
         await axios.post('/api/new-item-request', payload)
       }
 
@@ -265,7 +461,7 @@ function InputInquiry() {
         type: 'success',
         text: isEditMode
           ? 'Item request berhasil diperbarui.'
-          : 'Item request berhasil disimpan.'
+          : `${requestItems.length} item request berhasil disimpan.`
       })
 
       setTimeout(() => {
@@ -362,51 +558,246 @@ function InputInquiry() {
                 <span className="material-symbols-outlined">precision_manufacturing</span>
                 <h2 className="text-lg font-semibold">Detail Item</h2>
               </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <div>
-                  <label className="block text-sm font-medium text-on-surface-variant">Part Number</label>
-                  <input name="partNumber" value={formData.partNumber} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5 font-mono" placeholder="Opsional jika diketahui" />
+              {isEditMode ? (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <div>
+                    <label className="block text-sm font-medium text-on-surface-variant">Part Number</label>
+                    <input name="partNumber" value={formData.partNumber} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5 font-mono" placeholder="Opsional jika diketahui" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-on-surface-variant">Nama Part *</label>
+                    <input name="partName" value={formData.partName} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="Nama part yang dicari" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-on-surface-variant">Brand *</label>
+                    <select name="brand" value={formData.brand} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5">
+                      <option value="">Pilih Brand</option>
+                      {brands.map((brand) => (
+                        <option key={brand.id || brand.name} value={brand.name}>
+                          {brand.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-on-surface-variant">Model *</label>
+                    <input name="model" value={formData.model} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="Model unit" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-on-surface-variant">Series</label>
+                    <input name="seriesType" value={formData.seriesType} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="Series / type" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-on-surface-variant">Year</label>
+                    <input name="year" value={formData.year} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="Tahun" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-on-surface-variant">Nomor VIN</label>
+                    <input name="vin" value={formData.vin} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5 uppercase" placeholder="Opsional" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-on-surface-variant">Total QTY</label>
+                    <input type="number" min="1" name="quantity" value={formData.quantity} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-on-surface-variant">UOM</label>
+                    <input name="uom" value={formData.uom} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="PCS / SET / UNIT" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-on-surface-variant">Nama Part *</label>
-                  <input name="partName" value={formData.partName} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="Nama part yang dicari" />
+              ) : (
+                <div className="space-y-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface-container-lowest px-4 py-3">
+                    <div>
+                      <p className="text-sm font-semibold text-on-surface">Banyak Item dalam Satu Inquiry</p>
+                      <p className="mt-1 text-xs text-on-surface-variant">
+                        Semua item di bawah ini akan memakai Inquiry ID, Inquiry Date, Sales Name, dan Customer yang sama. Setelah disimpan, item tetap dipisahkan per baris request tetapi Inquiry ID-nya tetap sama.
+                      </p>
+                      <p className="mt-2 text-xs font-medium text-primary">
+                        Klik tombol panah untuk menambahkan satu blok form item lengkap baru, termasuk upload gambar.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addRequestItem}
+                      className="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary"
+                    >
+                      <span className="material-symbols-outlined text-sm">keyboard_double_arrow_down</span>
+                      Tambah Form Item
+                    </button>
+                  </div>
+
+                  {requestItems.map((item, index) => (
+                    <div
+                      key={`request-item-${index}`}
+                      ref={(element) => {
+                        requestItemRefs.current[index] = element
+                      }}
+                      className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-outline-variant pb-3">
+                        <button
+                          type="button"
+                          onClick={() => toggleRequestItem(index)}
+                          className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                        >
+                          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            <span className="material-symbols-outlined text-sm">
+                              {expandedItems[index] ? 'expand_less' : 'expand_more'}
+                            </span>
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-on-surface">Item #{index + 1}</span>
+                              <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-primary">
+                                Form Lengkap
+                              </span>
+                            </div>
+                            <p className="mt-1 truncate text-sm font-medium text-on-surface">
+                              {getRequestItemSummary(item).title}
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2 text-xs text-on-surface-variant">
+                              <span className="rounded-full bg-white px-2.5 py-1">{getRequestItemSummary(item).vehicle}</span>
+                              <span className="rounded-full bg-white px-2.5 py-1">{getRequestItemSummary(item).qty}</span>
+                              <span className="rounded-full bg-white px-2.5 py-1">{getRequestItemSummary(item).imageCount}</span>
+                            </div>
+                            <p className="mt-2 text-xs text-on-surface-variant">
+                              Satu blok ini akan menjadi satu item request terpisah.
+                            </p>
+                          </div>
+                        </button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={addRequestItem}
+                            className="inline-flex items-center gap-2 rounded-lg border border-primary px-3 py-2 text-xs font-medium text-primary"
+                          >
+                            <span className="material-symbols-outlined text-sm">keyboard_arrow_down</span>
+                            Tambah Item Lagi
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeRequestItem(index)}
+                            disabled={requestItems.length === 1}
+                            className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <span className="material-symbols-outlined text-sm">delete</span>
+                            Hapus Item
+                          </button>
+                        </div>
+                      </div>
+
+                      {expandedItems[index] && (
+                        <>
+                      <div className="mt-4 rounded-xl border border-dashed border-outline-variant bg-white px-4 py-3 text-xs text-on-surface-variant">
+                        Lengkapi semua field item ini. Jika ada item berikutnya, klik tombol panah <span className="font-semibold text-primary">Tambah Item Lagi</span> untuk memunculkan satu blok form penuh yang baru.
+                      </div>
+                      <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        <div>
+                          <label className="block text-sm font-medium text-on-surface-variant">Part Number</label>
+                          <input name="partNumber" value={item.partNumber} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5 font-mono" placeholder="Opsional jika diketahui" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-on-surface-variant">Nama Part *</label>
+                          <input name="partName" value={item.partName} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="Nama part yang dicari" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-on-surface-variant">Brand *</label>
+                          <select name="brand" value={item.brand} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5">
+                            <option value="">Pilih Brand</option>
+                            {brands.map((brand) => (
+                              <option key={`${brand.id || brand.name}-${index}`} value={brand.name}>
+                                {brand.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-on-surface-variant">Model *</label>
+                          <input name="model" value={item.model} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="Model unit" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-on-surface-variant">Series</label>
+                          <input name="seriesType" value={item.seriesType} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="Series / type" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-on-surface-variant">Year</label>
+                          <input name="year" value={item.year} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="Tahun" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-on-surface-variant">Nomor VIN</label>
+                          <input name="vin" value={item.vin} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5 uppercase" placeholder="Opsional" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-on-surface-variant">Total QTY</label>
+                          <input type="number" min="1" name="quantity" value={item.quantity} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-on-surface-variant">UOM</label>
+                          <input name="uom" value={item.uom} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="PCS / SET / UNIT" />
+                        </div>
+                      </div>
+
+                      <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_320px]">
+                        <div>
+                          <label className="block text-sm font-medium text-on-surface-variant">Upload Gambar Item</label>
+                          <input type="file" accept="image/*" multiple onChange={(e) => handleRequestItemImageUpload(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant p-2.5 file:mr-4 file:rounded file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:font-medium file:text-primary" />
+                          <p className="mt-2 text-xs text-on-surface-variant">Boleh upload lebih dari 1 gambar untuk item ini.</p>
+
+                          {item.itemImages.length > 0 ? (
+                            <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
+                              {item.itemImages.map((image, imageIndex) => (
+                                <div key={`${image.url}-${imageIndex}`} className="overflow-hidden rounded-xl border border-outline-variant bg-white">
+                                  <img src={image.url} alt={image.name || `Item ${index + 1} gambar ${imageIndex + 1}`} className="h-28 w-full object-cover" />
+                                  <div className="space-y-2 px-3 py-2">
+                                    <p className="truncate text-xs text-on-surface-variant">{image.name || `Gambar ${imageIndex + 1}`}</p>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeRequestItemImage(index, imageIndex)}
+                                      className="text-xs font-medium text-red-700 hover:underline"
+                                    >
+                                      Hapus gambar
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="mt-3 rounded-xl border-2 border-dashed border-outline-variant bg-white px-4 py-8 text-center text-sm text-on-surface-variant">
+                              Belum ada gambar untuk item ini.
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="rounded-2xl border border-outline-variant bg-white p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Preview Utama</p>
+                          {item.itemImages[0]?.url ? (
+                            <img src={item.itemImages[0].url} alt={item.partName || `Preview item ${index + 1}`} className="mt-3 h-64 w-full rounded-xl object-cover" />
+                          ) : (
+                            <div className="mt-3 flex h-64 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-outline-variant bg-surface-container-lowest text-center text-on-surface-variant">
+                              <span className="material-symbols-outlined text-4xl">image</span>
+                              <p className="mt-2 text-sm font-medium">Belum ada gambar</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {index === requestItems.length - 1 && (
+                        <div className="mt-5 flex justify-center">
+                          <button
+                            type="button"
+                            onClick={addRequestItem}
+                            className="inline-flex items-center gap-2 rounded-xl border border-primary px-4 py-2.5 text-sm font-medium text-primary"
+                          >
+                            <span className="material-symbols-outlined text-sm">keyboard_double_arrow_down</span>
+                            Tambah Form Item Berikutnya
+                          </button>
+                        </div>
+                      )}
+                        </>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-on-surface-variant">Brand *</label>
-                  <select name="brand" value={formData.brand} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5">
-                    <option value="">Pilih Brand</option>
-                    {brands.map((brand) => (
-                      <option key={brand.id || brand.name} value={brand.name}>
-                        {brand.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-on-surface-variant">Model *</label>
-                  <input name="model" value={formData.model} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="Model unit" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-on-surface-variant">Series</label>
-                  <input name="seriesType" value={formData.seriesType} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="Series / type" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-on-surface-variant">Year</label>
-                  <input name="year" value={formData.year} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="Tahun" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-on-surface-variant">Nomor VIN</label>
-                  <input name="vin" value={formData.vin} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5 uppercase" placeholder="Opsional" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-on-surface-variant">Total QTY</label>
-                  <input type="number" min="1" name="quantity" value={formData.quantity} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-on-surface-variant">UOM</label>
-                  <input name="uom" value={formData.uom} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="PCS / SET / UNIT" />
-                </div>
-              </div>
+              )}
             </section>
 
             {canManagePricing && (
@@ -489,19 +880,40 @@ function InputInquiry() {
             <section className="rounded-2xl border border-outline-variant bg-white p-6 shadow-sm">
               <div className="mb-6 flex items-center gap-2 text-primary">
                 <span className="material-symbols-outlined">attach_file</span>
-                <h2 className="text-lg font-semibold">Gambar Item, Lampiran, dan Catatan</h2>
+                <h2 className="text-lg font-semibold">{isEditMode ? 'Gambar Item, Lampiran, dan Catatan' : 'Lampiran Inquiry dan Catatan'}</h2>
               </div>
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.5fr)_320px]">
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-on-surface-variant">Upload Gambar Item</label>
-                    <input type="file" name="itemImageFile" accept="image/*" onChange={handleFileUpload} className="mt-2 w-full rounded-lg border border-outline-variant p-2.5 file:mr-4 file:rounded file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:font-medium file:text-primary" />
-                    {formData.itemImageName && <p className="mt-2 text-xs text-on-surface-variant">File terpilih: {formData.itemImageName}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-on-surface-variant">URL Gambar</label>
-                    <input type="url" name="itemImageUrl" value={formData.itemImageUrl} onChange={handleChange} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="https://..." />
-                  </div>
+                  {isEditMode && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-on-surface-variant">Upload Gambar Item</label>
+                        <input type="file" name="itemImageFile" accept="image/*" multiple onChange={handleFileUpload} className="mt-2 w-full rounded-lg border border-outline-variant p-2.5 file:mr-4 file:rounded file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:font-medium file:text-primary" />
+                        <p className="mt-2 text-xs text-on-surface-variant">Boleh upload lebih dari 1 gambar untuk item request ini.</p>
+                      </div>
+
+                      {formData.itemImages.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                          {formData.itemImages.map((image, imageIndex) => (
+                            <div key={`${image.url}-${imageIndex}`} className="overflow-hidden rounded-xl border border-outline-variant bg-white">
+                              <img src={image.url} alt={image.name || `Gambar ${imageIndex + 1}`} className="h-28 w-full object-cover" />
+                              <div className="space-y-2 px-3 py-2">
+                                <p className="truncate text-xs text-on-surface-variant">{image.name || `Gambar ${imageIndex + 1}`}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => removeSingleItemImage(imageIndex)}
+                                  className="text-xs font-medium text-red-700 hover:underline"
+                                >
+                                  Hapus gambar
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+
                   <div>
                     <label className="block text-sm font-medium text-on-surface-variant">Upload Lampiran</label>
                     <input type="file" name="attachmentFile" accept=".pdf,.doc,.docx,.xls,.xlsx,image/*" onChange={handleFileUpload} className="mt-2 w-full rounded-lg border border-outline-variant p-2.5 file:mr-4 file:rounded file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:font-medium file:text-primary" />
@@ -517,13 +929,30 @@ function InputInquiry() {
                   </div>
                 </div>
                 <div className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Preview Gambar</p>
-                  {formData.itemImageUrl ? (
-                    <img src={formData.itemImageUrl} alt={formData.partName || 'Preview item'} className="mt-3 h-64 w-full rounded-xl object-cover" />
+                  <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">{isEditMode ? 'Preview Gambar' : 'Ringkasan Inquiry'}</p>
+                  {isEditMode ? (
+                    formData.itemImageUrl ? (
+                      <img src={formData.itemImageUrl} alt={formData.partName || 'Preview item'} className="mt-3 h-64 w-full rounded-xl object-cover" />
+                    ) : (
+                      <div className="mt-3 flex h-64 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-outline-variant bg-white text-center text-on-surface-variant">
+                        <span className="material-symbols-outlined text-4xl">image</span>
+                        <p className="mt-2 text-sm font-medium">Belum ada gambar</p>
+                      </div>
+                    )
                   ) : (
-                    <div className="mt-3 flex h-64 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-outline-variant bg-white text-center text-on-surface-variant">
-                      <span className="material-symbols-outlined text-4xl">image</span>
-                      <p className="mt-2 text-sm font-medium">Belum ada gambar</p>
+                    <div className="mt-3 space-y-3">
+                      <div className="rounded-xl bg-white p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Inquiry ID</p>
+                        <p className="mt-2 text-sm font-semibold text-on-surface">{formData.inquiryId || '-'}</p>
+                      </div>
+                      <div className="rounded-xl bg-white p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Jumlah Item</p>
+                        <p className="mt-2 text-sm font-semibold text-on-surface">{requestItems.length}</p>
+                      </div>
+                      <div className="rounded-xl bg-white p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant">Customer</p>
+                        <p className="mt-2 text-sm font-semibold text-on-surface">{formData.customer || '-'}</p>
+                      </div>
                     </div>
                   )}
                 </div>

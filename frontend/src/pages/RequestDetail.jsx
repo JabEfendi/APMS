@@ -95,7 +95,7 @@ const purchasingSections = [
   }
 ]
 
-const mediaFieldKeys = ['item_image_url', 'attachment_url', 'notes', 'item_image_name', 'attachment_name']
+const mediaFieldKeys = ['item_image_url', 'item_images', 'attachment_url', 'notes', 'item_image_name', 'attachment_name']
 
 function findKey(data, keys) {
   return keys.find((key) => Object.prototype.hasOwnProperty.call(data, key))
@@ -208,6 +208,37 @@ function getWorkflowClasses(status) {
     default:
       return 'bg-slate-100 text-slate-700'
   }
+}
+
+function getItemImages(request) {
+  if (!request) {
+    return []
+  }
+
+  if (Array.isArray(request.item_images) && request.item_images.length > 0) {
+    return request.item_images.filter((item) => item?.url)
+  }
+
+  if (typeof request.item_images === 'string' && request.item_images.trim()) {
+    try {
+      const parsed = JSON.parse(request.item_images)
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item) => item?.url)
+      }
+    } catch (error) {
+      console.error('Gagal parse item_images:', error)
+    }
+  }
+
+  if (request.item_image_url) {
+    return [{
+      url: request.item_image_url,
+      name: request.item_image_name || '',
+      mimeType: request.item_image_mime_type || ''
+    }]
+  }
+
+  return []
 }
 
 function DetailCard({ title, icon, children, className = '' }) {
@@ -404,8 +435,10 @@ function RequestDetail() {
   const requestNumber = request.request_number || `REQ-${request.id}`
   const partNumber = request.part_no || request.part_number || '-'
   const displayTitle = isSalesView ? (request.inquiry_id || request.part_name || `Request #${request.id}`) : requestNumber
-  const imageUrl = request.item_image_url || ''
-  const imageName = request.item_image_name || ''
+  const itemImages = getItemImages(request)
+  const primaryImage = itemImages[0] || null
+  const imageUrl = primaryImage?.url || ''
+  const imageName = primaryImage?.name || request.item_image_name || ''
   const attachmentUrl = request.attachment_url || ''
   const attachmentName = request.attachment_name || ''
   const notes = request.notes || ''
@@ -521,6 +554,28 @@ function RequestDetail() {
                 <p className="mt-3 text-xs text-on-surface-variant">
                   File gambar: <span className="font-medium text-on-surface">{imageName || 'Tanpa nama file'}</span>
                 </p>
+                {itemImages.length > 1 && (
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    {itemImages.map((image, imageIndex) => (
+                      <a
+                        key={`${image.url}-${imageIndex}`}
+                        href={image.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest"
+                      >
+                        <img
+                          src={image.url}
+                          alt={image.name || `Gambar ${imageIndex + 1}`}
+                          className="h-24 w-full object-cover"
+                        />
+                        <div className="px-3 py-2 text-xs text-on-surface-variant">
+                          {image.name || `Gambar ${imageIndex + 1}`}
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                )}
               </>
             ) : (
               <div className="flex h-64 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-outline-variant bg-surface-container-lowest text-center text-on-surface-variant">

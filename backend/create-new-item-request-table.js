@@ -30,6 +30,7 @@ async function createNewItemRequestTable() {
         item_image_url TEXT,
         item_image_name VARCHAR(255),
         item_image_mime_type VARCHAR(255),
+        item_images JSONB DEFAULT '[]'::jsonb,
         attachment_url TEXT,
         attachment_name VARCHAR(255),
         attachment_mime_type VARCHAR(255),

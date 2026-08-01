@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { Fragment, useState, useEffect, useMemo } from 'react'
 import axios from 'axios'
 import { Link } from 'react-router-dom'
 import { exportToExcel, exportToCSV } from '../utils/exportFunctions'
@@ -65,6 +65,45 @@ function RequestList() {
   }
 
   const isSalesView = isSalesRole(user?.role)
+  const inquiryGroupCounts = useMemo(() => {
+    const counts = new Map()
+
+    allRequests.forEach((request) => {
+      const inquiryId = String(request?.inquiry_id || '').trim()
+      if (!inquiryId) {
+        return
+      }
+
+      counts.set(inquiryId, (counts.get(inquiryId) || 0) + 1)
+    })
+
+    return counts
+  }, [allRequests])
+
+  const groupedRequests = useMemo(() => {
+    const groups = []
+    const groupMap = new Map()
+
+    requests.forEach((request) => {
+      const rawInquiryId = String(request?.inquiry_id || '').trim()
+      const groupKey = rawInquiryId || `single-${request.id}`
+
+      if (!groupMap.has(groupKey)) {
+        const group = {
+          key: groupKey,
+          inquiryId: rawInquiryId,
+          items: []
+        }
+
+        groupMap.set(groupKey, group)
+        groups.push(group)
+      }
+
+      groupMap.get(groupKey).items.push(request)
+    })
+
+    return groups
+  }, [requests])
 
   const formatCompactValue = (value) => {
     if (value === null || value === undefined || value === '') {
@@ -232,66 +271,109 @@ function RequestList() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant">
-                {requests.map((request) => {
-                  const agingDays = getAgingDays(request)
+                {groupedRequests.map((group) => {
+                  const firstRequest = group.items[0]
+                  const totalInInquiry = group.inquiryId
+                    ? inquiryGroupCounts.get(group.inquiryId) || group.items.length
+                    : group.items.length
 
                   return (
-                    <tr key={request.id} className="hover:bg-surface-container-low transition-colors">
-                      <td className="px-6 py-4 font-semibold text-primary">{request.request_number}</td>
-                      <td className="px-6 py-4 font-semibold">{formatCompactValue(request.inquiry_id)}</td>
-                      <td className="px-6 py-4">{formatCompactValue(request.sales_name)}</td>
-                      <td className="px-6 py-4 font-mono">{request.part_no || request.partNumber || '-'}</td>
-                      <td className="px-6 py-4">{request.part_name}</td>
-                      <td className="px-6 py-4">{request.brand}</td>
-                      {canViewVendorInternal(user?.role) && (
-                        <td className="px-6 py-4">{formatCompactValue(request.vendor_name)}</td>
-                      )}
-                      <td className="px-6 py-4">{formatCompactValue(request.selling_price)}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getDataStatusColor(request.data_status)}`}>
-                          {request.data_status || 'Tidak Complete'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getAgingColor(agingDays)}`}>
-                          {agingDays}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`rounded-full px-2 py-1 text-xs font-bold uppercase ${getWorkflowColor(request.status)}`}>
-                          {getWorkflowLabel(request.status)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">{request.created_at ? new Date(request.created_at).toLocaleDateString('id-ID') : '-'}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <Link
-                            to={`/requests/${request.id}`}
-                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-outline-variant text-label-md font-medium hover:bg-surface-container transition-colors"
-                          >
-                            <span className="material-symbols-outlined text-sm">visibility</span>
-                            Detail
-                          </Link>
+                    <Fragment key={`group-${group.key}`}>
+                      <tr key={`group-${group.key}`} className="bg-primary/5">
+                        <td colSpan={canViewVendorInternal(user?.role) ? 13 : 12} className="px-6 py-4">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-semibold text-primary">
+                                  Inquiry {formatCompactValue(group.inquiryId)}
+                                </span>
+                                <span className="inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold uppercase text-primary">
+                                  {totalInInquiry} item
+                                </span>
+                              </div>
+                              <p className="mt-1 text-xs text-on-surface-variant">
+                                Customer: {formatCompactValue(firstRequest?.customer)} | Sales: {formatCompactValue(firstRequest?.sales_name)} | Tanggal: {firstRequest?.inquiry_date ? new Date(firstRequest.inquiry_date).toLocaleDateString('id-ID') : '-'}
+                              </p>
+                            </div>
+                            <span className="text-xs text-on-surface-variant">
+                              Semua item di bawah ini berasal dari satu input inquiry yang sama.
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
 
-                          {canEditInquiryData(user?.role) ? (
-                            request.status === 'approved' ? (
-                              <span className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
-                                <span className="material-symbols-outlined text-sm">lock</span>
-                                Terkunci
+                      {group.items.map((request, itemIndex) => {
+                        const agingDays = getAgingDays(request)
+
+                        return (
+                          <tr key={request.id} className="hover:bg-surface-container-low transition-colors">
+                            <td className="px-6 py-4 font-semibold text-primary">{request.request_number}</td>
+                            <td className="px-6 py-4">
+                              <div className="space-y-2">
+                                <p className="font-semibold text-on-surface">{formatCompactValue(request.inquiry_id)}</p>
+                                {totalInInquiry > 1 && (
+                                  <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold uppercase text-primary">
+                                    Item {itemIndex + 1} dari {totalInInquiry}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">{formatCompactValue(request.sales_name)}</td>
+                            <td className="px-6 py-4 font-mono">{request.part_no || request.partNumber || '-'}</td>
+                            <td className="px-6 py-4">{request.part_name}</td>
+                            <td className="px-6 py-4">{request.brand}</td>
+                            {canViewVendorInternal(user?.role) && (
+                              <td className="px-6 py-4">{formatCompactValue(request.vendor_name)}</td>
+                            )}
+                            <td className="px-6 py-4">{formatCompactValue(request.selling_price)}</td>
+                            <td className="px-6 py-4">
+                              <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getDataStatusColor(request.data_status)}`}>
+                                {request.data_status || 'Tidak Complete'}
                               </span>
-                            ) : (
-                              <Link
-                                to={`/requests/${request.id}/edit`}
-                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-outline-variant text-label-md font-medium hover:bg-surface-container transition-colors"
-                              >
-                                <span className="material-symbols-outlined text-sm">edit</span>
-                                Edit
-                              </Link>
-                            )
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getAgingColor(agingDays)}`}>
+                                {agingDays}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`rounded-full px-2 py-1 text-xs font-bold uppercase ${getWorkflowColor(request.status)}`}>
+                                {getWorkflowLabel(request.status)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">{request.created_at ? new Date(request.created_at).toLocaleDateString('id-ID') : '-'}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                <Link
+                                  to={`/requests/${request.id}`}
+                                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-outline-variant text-label-md font-medium hover:bg-surface-container transition-colors"
+                                >
+                                  <span className="material-symbols-outlined text-sm">visibility</span>
+                                  Detail
+                                </Link>
+
+                                {canEditInquiryData(user?.role) ? (
+                                  request.status === 'approved' ? (
+                                    <span className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
+                                      <span className="material-symbols-outlined text-sm">lock</span>
+                                      Terkunci
+                                    </span>
+                                  ) : (
+                                    <Link
+                                      to={`/requests/${request.id}/edit`}
+                                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-outline-variant text-label-md font-medium hover:bg-surface-container transition-colors"
+                                    >
+                                      <span className="material-symbols-outlined text-sm">edit</span>
+                                      Edit
+                                    </Link>
+                                  )
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </Fragment>
                   )
                 })}
               </tbody>

@@ -100,6 +100,7 @@ const REQUEST_SALES_EDITABLE_FIELD_MAP = {
     uom: 'uom',
     vin: 'vin',
     notes: 'notes',
+    itemImages: 'item_images',
     itemImageUrl: 'item_image_url',
     itemImageName: 'item_image_name',
     itemImageMimeType: 'item_image_mime_type',
@@ -201,13 +202,108 @@ const sanitizeInquiryRow = (row, role) => {
     return row;
 };
 
+const normalizeFileEntry = (file) => {
+    if (!file || typeof file !== 'object') {
+        return null;
+    }
+
+    const url = typeof file.url === 'string' ? file.url.trim() : '';
+    if (!url) {
+        return null;
+    }
+
+    return {
+        url,
+        name: typeof file.name === 'string' ? file.name.trim() : '',
+        mimeType: typeof file.mimeType === 'string' ? file.mimeType.trim() : ''
+    };
+};
+
+const normalizeItemImages = (itemImages) => {
+    if (!Array.isArray(itemImages)) {
+        return [];
+    }
+
+    return itemImages
+        .map(normalizeFileEntry)
+        .filter(Boolean);
+};
+
+const getPrimaryImageFromGallery = (itemImages = []) => {
+    if (!Array.isArray(itemImages) || itemImages.length === 0) {
+        return {
+            itemImageUrl: null,
+            itemImageName: null,
+            itemImageMimeType: null
+        };
+    }
+
+    return {
+        itemImageUrl: itemImages[0].url || null,
+        itemImageName: itemImages[0].name || null,
+        itemImageMimeType: itemImages[0].mimeType || null
+    };
+};
+
+const fillMissingInquiryIds = (rows = []) => {
+    let currentInquiryId = '';
+
+    return rows.map((row) => {
+        const inquiryId = String(row?.Inquiry_ID || '').trim();
+
+        if (inquiryId) {
+            currentInquiryId = inquiryId;
+            return row;
+        }
+
+        if (!currentInquiryId) {
+            return row;
+        }
+
+        return {
+            ...row,
+            Inquiry_ID: currentInquiryId
+        };
+    });
+};
+
+const resolveFilledInquiryRow = async (row) => {
+    if (!row) {
+        return row;
+    }
+
+    const inquiryId = String(row.Inquiry_ID || '').trim();
+    if (inquiryId || !row.id) {
+        return row;
+    }
+
+    const fallbackResult = await pool.query(
+        `SELECT "Inquiry_ID"
+         FROM "DATA_INQUIRY"
+         WHERE id <= $1
+           AND NULLIF(BTRIM(COALESCE("Inquiry_ID", '')), '') IS NOT NULL
+         ORDER BY id DESC
+         LIMIT 1`,
+        [row.id]
+    );
+
+    if (fallbackResult.rows.length === 0) {
+        return row;
+    }
+
+    return {
+        ...row,
+        Inquiry_ID: fallbackResult.rows[0].Inquiry_ID
+    };
+};
+
 const sanitizeRowsForTable = (table, rows, role) => {
     if (table === 'new_item_requests') {
         return rows.map((row) => sanitizeRequestRow(row, role));
     }
 
     if (table === 'DATA_INQUIRY') {
-        return rows.map((row) => sanitizeInquiryRow(row, role));
+        return fillMissingInquiryIds(rows).map((row) => sanitizeInquiryRow(row, role));
     }
 
     return rows;
@@ -440,6 +536,7 @@ const ensureNewItemRequestsTable = async () => {
             item_image_url TEXT,
             item_image_name VARCHAR(255),
             item_image_mime_type VARCHAR(255),
+            item_images JSONB DEFAULT '[]'::jsonb,
             attachment_url TEXT,
             attachment_name VARCHAR(255),
             attachment_mime_type VARCHAR(255),
@@ -485,6 +582,7 @@ const ensureNewItemRequestsTable = async () => {
     await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS item_image_url TEXT`);
     await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS item_image_name VARCHAR(255)`);
     await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS item_image_mime_type VARCHAR(255)`);
+    await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS item_images JSONB DEFAULT '[]'::jsonb`);
     await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS attachment_url TEXT`);
     await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS attachment_name VARCHAR(255)`);
     await pool.query(`ALTER TABLE new_item_requests ADD COLUMN IF NOT EXISTS attachment_mime_type VARCHAR(255)`);
@@ -816,6 +914,8 @@ app.get('/api/stats', authenticateToken, async (req, res) => {
 
 // POST endpoint for new item request
 app.post('/api/new-item-request', authenticateToken, requireNormalizedRole('sales', 'purchasing', 'admin'), async (req, res) => {
+    const client = await pool.connect();
+
     try {
         const isPurchasingInput = canManagePurchasingFlow(req.user.role);
         const normalizedSalesName = isSalesRole(req.user.role) ? req.user.username : req.body.salesName;
@@ -824,16 +924,6 @@ app.post('/api/new-item-request', authenticateToken, requireNormalizedRole('sale
             inquiryDate,
             customer,
             customerType,
-            partNo,
-            partName,
-            brand,
-            model,
-            seriesType,
-            year,
-            quantity,
-            uom,
-            workshopName,
-            vin,
             dataStatus,
             statusReason,
             progressNotes,
@@ -849,117 +939,166 @@ app.post('/api/new-item-request', authenticateToken, requireNormalizedRole('sale
             costPrice,
             sellingPrice,
             updateDate,
-            itemImageUrl,
-            itemImageName,
-            itemImageMimeType,
             attachmentUrl,
             attachmentName,
             attachmentMimeType,
             notes
         } = req.body;
-        const computedHppIdr = isPurchasingInput ? calculateHppIdr(costPrice) : null;
 
-        if (!inquiryId || !inquiryDate || !normalizedSalesName || !customer || !partName || !brand || !model) {
-            return res.status(400).json({ error: 'Inquiry ID, Inquiry Date, Sales Name, Customer Name, Nama Part, Brand, dan Model wajib diisi' });
+        const rawRequestItems = Array.isArray(req.body.requestItems) && req.body.requestItems.length > 0
+            ? req.body.requestItems
+            : [req.body];
+
+        if (!inquiryId || !inquiryDate || !normalizedSalesName || !customer) {
+            return res.status(400).json({ error: 'Inquiry ID, Inquiry Date, Sales Name, dan Customer Name wajib diisi' });
         }
 
-        const requestNumber = `REQ-${Date.now()}`;
+        for (const item of rawRequestItems) {
+            if (!item.partName || !item.brand || !item.model) {
+                return res.status(400).json({ error: 'Setiap item wajib memiliki Nama Part, Brand, dan Model' });
+            }
+        }
 
-        const result = await pool.query(
-            `INSERT INTO new_item_requests (
-                request_number,
-                inquiry_id,
-                inquiry_date,
-                sales_name,
-                customer,
-                customer_type,
-                part_no,
-                part_name,
-                brand,
-                model,
-                series_type,
-                year,
-                quantity,
-                uom,
-                workshop_name,
-                vin,
-                data_status,
-                vendor_id,
-                vendor_name,
-                category_part,
-                currency,
-                atpm_price,
-                cost_price,
-                hpp_idr,
-                selling_price,
-                update_date,
-                item_image_url,
-                item_image_name,
-                item_image_mime_type,
-                attachment_url,
-                attachment_name,
-                attachment_mime_type,
-                notes,
-                status_reason,
-                progress_notes,
-                status_id,
-                po_process,
-                po_number,
-                po_date,
-                status,
-                created_by
-            )
-             VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NULL, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, 'validation', $39
-             )
-             RETURNING *`,
-            [
-                requestNumber,
-                inquiryId,
-                inquiryDate,
-                normalizedSalesName,
-                customer,
-                customerType || null,
-                partNo || null,
-                partName,
-                brand,
-                model,
-                seriesType || null,
-                year || null,
-                quantity || null,
-                uom || null,
-                vin || null,
-                dataStatus || 'Tidak Complete',
-                isPurchasingInput ? vendorId || null : null,
-                isPurchasingInput ? vendorName || null : null,
-                isPurchasingInput ? categoryPart || null : null,
-                isPurchasingInput ? currency || 'IDR' : null,
-                isPurchasingInput ? atpmPrice || null : null,
-                isPurchasingInput ? costPrice || null : null,
-                computedHppIdr,
-                isPurchasingInput ? sellingPrice || null : null,
-                updateDate || null,
-                itemImageUrl || null,
-                itemImageName || null,
-                itemImageMimeType || null,
-                attachmentUrl || null,
-                attachmentName || null,
-                attachmentMimeType || null,
-                notes || null,
-                statusReason || null,
-                progressNotes || null,
-                isPurchasingInput ? statusId || null : null,
-                isPurchasingInput ? poProcess || null : null,
-                isPurchasingInput ? poNumber || null : null,
-                isPurchasingInput ? poDate || null : null,
-                req.user.id
-            ]
-        );
+        const requestNumberBase = `REQ-${Date.now()}`;
+        const createdRows = [];
+        await client.query('BEGIN');
 
-        res.json(sanitizeRequestRow(result.rows[0], req.user.role));
+        for (let index = 0; index < rawRequestItems.length; index += 1) {
+            const item = rawRequestItems[index];
+            const normalizedImages = normalizeItemImages(item.itemImages);
+
+            if (normalizedImages.length === 0) {
+                const legacyImage = normalizeFileEntry({
+                    url: item.itemImageUrl || '',
+                    name: item.itemImageName || '',
+                    mimeType: item.itemImageMimeType || ''
+                });
+
+                if (legacyImage) {
+                    normalizedImages.push(legacyImage);
+                }
+            }
+
+            const primaryImage = getPrimaryImageFromGallery(normalizedImages);
+            const currentCostPrice = item.costPrice ?? costPrice;
+            const computedHppIdr = isPurchasingInput ? calculateHppIdr(currentCostPrice) : null;
+            const requestNumber = rawRequestItems.length > 1
+                ? `${requestNumberBase}-${index + 1}`
+                : requestNumberBase;
+
+            const result = await client.query(
+                `INSERT INTO new_item_requests (
+                    request_number,
+                    inquiry_id,
+                    inquiry_date,
+                    sales_name,
+                    customer,
+                    customer_type,
+                    part_no,
+                    part_name,
+                    brand,
+                    model,
+                    series_type,
+                    year,
+                    quantity,
+                    uom,
+                    workshop_name,
+                    vin,
+                    data_status,
+                    vendor_id,
+                    vendor_name,
+                    category_part,
+                    currency,
+                    atpm_price,
+                    cost_price,
+                    hpp_idr,
+                    selling_price,
+                    update_date,
+                    item_image_url,
+                    item_image_name,
+                    item_image_mime_type,
+                    item_images,
+                    attachment_url,
+                    attachment_name,
+                    attachment_mime_type,
+                    notes,
+                    status_reason,
+                    progress_notes,
+                    status_id,
+                    po_process,
+                    po_number,
+                    po_date,
+                    status,
+                    created_by
+                )
+                 VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NULL, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, 'validation', $40
+                 )
+                 RETURNING *`,
+                [
+                    requestNumber,
+                    inquiryId,
+                    inquiryDate,
+                    normalizedSalesName,
+                    customer,
+                    customerType || null,
+                    item.partNo || null,
+                    item.partName,
+                    item.brand,
+                    item.model,
+                    item.seriesType || null,
+                    item.year || null,
+                    item.quantity || null,
+                    item.uom || null,
+                    item.vin || null,
+                    item.dataStatus || dataStatus || 'Tidak Complete',
+                    isPurchasingInput ? (item.vendorId ?? vendorId ?? null) : null,
+                    isPurchasingInput ? (item.vendorName ?? vendorName ?? null) : null,
+                    isPurchasingInput ? (item.categoryPart ?? categoryPart ?? null) : null,
+                    isPurchasingInput ? (item.currency ?? currency ?? 'IDR') : null,
+                    isPurchasingInput ? (item.atpmPrice ?? atpmPrice ?? null) : null,
+                    isPurchasingInput ? (currentCostPrice || null) : null,
+                    computedHppIdr,
+                    isPurchasingInput ? (item.sellingPrice ?? sellingPrice ?? null) : null,
+                    item.updateDate || updateDate || null,
+                    primaryImage.itemImageUrl,
+                    primaryImage.itemImageName,
+                    primaryImage.itemImageMimeType,
+                    JSON.stringify(normalizedImages),
+                    item.attachmentUrl || attachmentUrl || null,
+                    item.attachmentName || attachmentName || null,
+                    item.attachmentMimeType || attachmentMimeType || null,
+                    item.notes || notes || null,
+                    item.statusReason || statusReason || null,
+                    item.progressNotes || progressNotes || null,
+                    isPurchasingInput ? (item.statusId ?? statusId ?? null) : null,
+                    isPurchasingInput ? (item.poProcess ?? poProcess ?? null) : null,
+                    isPurchasingInput ? (item.poNumber ?? poNumber ?? null) : null,
+                    isPurchasingInput ? (item.poDate ?? poDate ?? null) : null,
+                    req.user.id
+                ]
+            );
+
+            createdRows.push(result.rows[0]);
+        }
+
+        await client.query('COMMIT');
+
+        if (createdRows.length === 1) {
+            return res.json(sanitizeRequestRow(createdRows[0], req.user.role));
+        }
+
+        return res.json({
+            inquiryId,
+            totalItems: createdRows.length,
+            requests: createdRows.map((row) => sanitizeRequestRow(row, req.user.role))
+        });
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error(err.message);
         res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
     }
 });
 
@@ -1359,7 +1498,8 @@ app.get('/api/inquiries/:id', authenticateToken, async (req, res) => {
             return res.status(403).json({ error: 'Sales hanya dapat melihat inquiry miliknya sendiri' });
         }
 
-        res.json(sanitizeInquiryRow(result.rows[0], req.user.role));
+        const normalizedInquiryRow = await resolveFilledInquiryRow(result.rows[0]);
+        res.json(sanitizeInquiryRow(normalizedInquiryRow, req.user.role));
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ error: err.message });
