@@ -14,9 +14,10 @@ import RequestList from './pages/RequestList'
 import RequestDetail from './pages/RequestDetail'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import { canAccessRoute, canAccessDashboard, getDefaultRoute, isSalesRole } from './utils/rbac'
 
 // Protected Route Component
-function ProtectedRoute({ children }) {
+function ProtectedRoute({ children, path }) {
   const { user, loading } = useAuth()
   
   if (loading) {
@@ -34,6 +35,10 @@ function ProtectedRoute({ children }) {
     return <Navigate to="/login" replace />
   }
   
+  if (!canAccessRoute(user.role, path)) {
+    return <Navigate to={getDefaultRoute(user.role)} replace />
+  }
+
   return children
 }
 
@@ -49,18 +54,22 @@ function AppContent() {
       case '/':
         return 'Dashboard'
       case '/inquiries':
-        return 'Inquiries'
+        return 'Inquiry'
       case '/inquiries/new':
-        return 'Input Inquiry'
+        return isSalesRole(user?.role) ? 'Input Inquiry' : 'Input Item Request'
       case '/master-items':
-        return 'Master Items'
+        return 'Master Item'
       case '/requests':
-        return 'Item Requests'
+        return 'Item Request'
       case '/requests/new':
-        return 'Permintaan Item Baru'
+        return 'Item Request Baru'
       default:
         return 'Dashboard'
     }
+  }
+
+  if (!loading && user && location.pathname === '/' && !canAccessDashboard(user.role)) {
+    return <Navigate to={getDefaultRoute(user.role)} replace />
   }
 
   if (isAuthPage) {
@@ -79,60 +88,66 @@ function AppContent() {
       <div className="ml-64 flex flex-col min-h-screen">
         <Routes>
           <Route path="/" element={
-            <ProtectedRoute>
+            <ProtectedRoute path="/">
               <Header title={getPageTitle('/')} user={user} onLogout={logout} />
               <Dashboard />
             </ProtectedRoute>
           } />
           <Route path="/inquiries" element={
-            <ProtectedRoute>
+            <ProtectedRoute path="/inquiries">
               <Header title={getPageTitle('/inquiries')} user={user} onLogout={logout} />
               <InquiryList />
             </ProtectedRoute>
           } />
           <Route path="/inquiries/:id" element={
-            <ProtectedRoute>
+            <ProtectedRoute path="/inquiries/:id">
               <Header title="Detail Inquiry" user={user} onLogout={logout} />
               <InquiryDetail />
             </ProtectedRoute>
           } />
           <Route path="/inquiries/new" element={
-            <ProtectedRoute>
+            <ProtectedRoute path="/inquiries/new">
               <Header title={getPageTitle('/inquiries/new')} user={user} onLogout={logout} />
               <InputInquiry />
             </ProtectedRoute>
           } />
+          <Route path="/requests/:id/edit" element={
+            <ProtectedRoute path="/requests/:id/edit">
+              <Header title={isSalesRole(user?.role) ? 'Edit Input Inquiry' : 'Edit Item Request'} user={user} onLogout={logout} />
+              <InputInquiry />
+            </ProtectedRoute>
+          } />
           <Route path="/master-items" element={
-            <ProtectedRoute>
+            <ProtectedRoute path="/master-items">
               <Header title={getPageTitle('/master-items')} user={user} onLogout={logout} />
               <MasterItems />
             </ProtectedRoute>
           } />
           <Route path="/master-items/:id" element={
-            <ProtectedRoute>
+            <ProtectedRoute path="/master-items/:id">
               <Header title="Detail Master Item" user={user} onLogout={logout} />
               <MasterItemDetail />
             </ProtectedRoute>
           } />
           <Route path="/requests" element={
-            <ProtectedRoute>
+            <ProtectedRoute path="/requests">
               <Header title={getPageTitle('/requests')} user={user} onLogout={logout} />
               <RequestList />
             </ProtectedRoute>
           } />
           <Route path="/requests/:id" element={
-            <ProtectedRoute>
-              <Header title="Detail Request" user={user} onLogout={logout} />
+            <ProtectedRoute path="/requests/:id">
+              <Header title="Detail Item Request" user={user} onLogout={logout} />
               <RequestDetail />
             </ProtectedRoute>
           } />
           <Route path="/requests/new" element={
-            <ProtectedRoute>
+            <ProtectedRoute path="/requests/new">
               <Header title={getPageTitle('/requests/new')} user={user} onLogout={logout} />
               <NewItemRequest />
             </ProtectedRoute>
           } />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to={getDefaultRoute(user?.role)} replace />} />
         </Routes>
       </div>
     </div>

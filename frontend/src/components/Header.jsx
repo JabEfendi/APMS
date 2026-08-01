@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getRoleLabel } from '../utils/rbac';
 
 function Header({ title, user, onLogout }) {
   const [showMenu, setShowMenu] = useState(false);
@@ -6,16 +7,6 @@ function Header({ title, user, onLogout }) {
   const getUserInitials = (username) => {
     if (!username) return 'U';
     return username.substring(0, 2).toUpperCase();
-  };
-
-  const getRoleLabel = (role) => {
-    const roleLabels = {
-      'requester': 'Requester',
-      'validator': 'Validator',
-      'approver': 'Approver',
-      'admin': 'Admin'
-    };
-    return roleLabels[role] || role;
   };
 
   return (

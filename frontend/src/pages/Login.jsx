@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { getDefaultRoute } from '../utils/rbac';
 
 function Login() {
   const [username, setUsername] = useState('');
@@ -18,7 +19,7 @@ function Login() {
     const result = await login(username, password);
 
     if (result.success) {
-      navigate('/');
+      navigate(getDefaultRoute(result.user?.role));
     } else {
       setError(result.error);
     }
@@ -83,10 +84,16 @@ function Login() {
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-on-surface-variant">
+        <div className="mt-6 space-y-3 text-center text-sm text-on-surface-variant">
           <p>
             Demo credentials:<br />
             (Register first to create an account)
+          </p>
+          <p>
+            Belum punya akun?{' '}
+            <Link to="/register" className="font-medium text-primary hover:underline">
+              Buat akun di halaman register
+            </Link>
           </p>
         </div>
       </div>

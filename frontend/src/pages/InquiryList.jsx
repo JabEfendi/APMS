@@ -2,9 +2,12 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { exportToExcel, exportToCSV } from '../utils/exportFunctions'
+import { useAuth } from '../context/AuthContext'
+import { canEditInquiryData } from '../utils/rbac'
 
 function InquiryList() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [inquiries, setInquiries] = useState([])
   const [allInquiries, setAllInquiries] = useState([])
   const [loading, setLoading] = useState(true)
@@ -108,13 +111,13 @@ function InquiryList() {
             </select>
           </div>
           <div className="space-y-2">
-            <label className="font-label-md text-on-surface-variant">Status</label>
+            <label className="font-label-md text-on-surface-variant">Data Status</label>
             <select 
               value={filters.status}
               onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
               className="w-full border border-outline-variant rounded-lg p-2 text-body-md focus:border-primary focus:ring-1 focus:ring-primary bg-white"
             >
-              <option value="">Semua Status</option>
+              <option value="">Semua Data Status</option>
               {statuses.map((status, idx) => (
                 <option key={idx} value={status}>{status}</option>
               ))}
@@ -172,8 +175,8 @@ function InquiryList() {
                 <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Inquiry ID</th>
                 <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Customer</th>
                 <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Part No</th>
-                <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Part Name</th>
-                <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Status</th>
+                <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Nama Part</th>
+                <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Data Status</th>
                 <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap text-center">Aksi</th>
               </tr>
             </thead>
@@ -201,8 +204,8 @@ function InquiryList() {
                       onClick={() => navigate(`/inquiries/${inquiry.id}`)}
                       className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-outline-variant text-label-md font-medium hover:bg-surface-container transition-colors"
                     >
-                      <span className="material-symbols-outlined text-sm">visibility</span>
-                      Detail
+                      <span className="material-symbols-outlined text-sm">{canEditInquiryData(user?.role) ? 'edit' : 'visibility'}</span>
+                      {canEditInquiryData(user?.role) ? 'Detail / Edit Inquiry' : 'Detail Inquiry'}
                     </button>
                   </td>
                 </tr>

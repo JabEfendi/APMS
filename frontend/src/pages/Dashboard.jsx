@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
+import { canAccessMasterItems } from '../utils/rbac'
 
 function Dashboard() {
+  const { user } = useAuth()
   const [stats, setStats] = useState({
     totalInquiries: 0,
     pendingCheck: 0,
@@ -45,7 +48,7 @@ function Dashboard() {
       return 'bg-green-100 text-green-800'
     } else if (statusLower.includes('pending') || statusLower.includes('checking') || statusLower.includes('menunggu')) {
       return 'bg-orange-100 text-orange-800'
-    } else if (statusLower.includes('approval') || statusLower.includes('baru')) {
+    } else if (statusLower.includes('approval') || statusLower.includes('review') || statusLower.includes('baru')) {
       return 'bg-purple-100 text-purple-800'
     }
     return 'bg-blue-100 text-blue-800'
@@ -184,7 +187,7 @@ function Dashboard() {
         <div className="space-y-4">
           {/* Flow Diagram Miniature Card */}
           <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm p-4">
-            <h3 className="font-headline-md text-headline-md text-primary mb-4 border-b border-outline-variant pb-2">Status Alur Kerja</h3>
+            <h3 className="font-headline-md text-headline-md text-primary mb-4 border-b border-outline-variant pb-2">Tahap Proses</h3>
             <div className="relative space-y-6">
               {/* Visual Connection Line */}
               <div className="absolute left-[11px] top-6 bottom-6 w-0.5 bg-outline-variant"></div>
@@ -192,21 +195,21 @@ function Dashboard() {
                 <div className="w-6 h-6 rounded-full bg-primary-container text-white flex items-center justify-center text-[10px] font-bold">1</div>
                 <div>
                   <p className="font-label-md text-label-md text-primary">Inkuiri Masuk</p>
-                  <p className="text-[11px] text-on-surface-variant">Validasi data dasar &amp; no inkuiri</p>
+                  <p className="text-[11px] text-on-surface-variant">Registrasi kebutuhan customer dan data dasar</p>
                 </div>
               </div>
               <div className="flex gap-4 relative z-10">
                 <div className="w-6 h-6 rounded-full bg-surface-variant text-primary flex items-center justify-center text-[10px] font-bold">2</div>
                 <div>
-                  <p className="font-label-md text-label-md text-primary opacity-60">Cek Master Item</p>
-                  <p className="text-[11px] text-on-surface-variant">Pencarian Brand + Part No</p>
+                  <p className="font-label-md text-label-md text-primary opacity-60">Review Purchasing</p>
+                  <p className="text-[11px] text-on-surface-variant">Cek master item, vendor, dan harga internal</p>
                 </div>
               </div>
               <div className="flex gap-4 relative z-10">
                 <div className="w-6 h-6 rounded-full bg-surface-variant text-primary flex items-center justify-center text-[10px] font-bold">3</div>
                 <div>
-                  <p className="font-label-md text-label-md text-primary opacity-60">Persetujuan Item Baru</p>
-                  <p className="text-[11px] text-on-surface-variant">Input Model, VIN &amp; Foto</p>
+                  <p className="font-label-md text-label-md text-primary opacity-60">Konfirmasi Akhir</p>
+                  <p className="text-[11px] text-on-surface-variant">Finalisasi pricing sales dan status proses</p>
                 </div>
               </div>
             </div>
@@ -237,7 +240,9 @@ function Dashboard() {
         <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm p-4">
           <div className="flex justify-between items-center mb-6">
             <h3 className="font-headline-md text-headline-md text-primary">Katalog Master Item</h3>
-            <Link to="/master-items" className="text-primary text-label-md hover:underline">Semua Item</Link>
+            {canAccessMasterItems(user?.role) && (
+              <Link to="/master-items" className="text-primary text-label-md hover:underline">Semua Item</Link>
+            )}
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div className="group cursor-pointer">
@@ -263,7 +268,7 @@ function Dashboard() {
 
         {/* Item Approval Timeline */}
         <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm p-4 flex flex-col">
-          <h3 className="font-headline-md text-headline-md text-primary mb-4">Persetujuan Terakhir</h3>
+          <h3 className="font-headline-md text-headline-md text-primary mb-4">Proses Terakhir</h3>
           <div className="space-y-4 flex-1">
             <div className="flex items-center gap-4 p-3 bg-surface-container-low rounded-lg">
               <div className="w-10 h-10 bg-green-100 text-green-700 rounded-full flex items-center justify-center">
@@ -280,8 +285,8 @@ function Dashboard() {
                 <span className="material-symbols-outlined">cancel</span>
               </div>
               <div className="flex-1">
-                <p className="text-label-md font-bold text-primary">Validasi Foto</p>
-                <p className="text-[11px] text-on-surface-variant">Menunggu verifikasi fisik • Pending</p>
+                <p className="text-label-md font-bold text-primary">Review Item</p>
+                <p className="text-[11px] text-on-surface-variant">Menunggu review purchasing • Pending</p>
               </div>
               <span className="text-[10px] font-bold text-tertiary-container bg-tertiary-container/10 px-2 py-1 rounded">PENDING</span>
             </div>
@@ -290,8 +295,8 @@ function Dashboard() {
                 <span className="material-symbols-outlined">hourglass_top</span>
               </div>
               <div className="flex-1">
-                <p className="text-label-md font-bold text-primary">Permintaan Baru</p>
-                <p className="text-[11px] text-on-surface-variant">Menunggu approval • Kemarin</p>
+                <p className="text-label-md font-bold text-primary">Item Request Baru</p>
+                <p className="text-[11px] text-on-surface-variant">Menunggu konfirmasi akhir • Kemarin</p>
               </div>
               <span className="text-[10px] font-bold text-tertiary-container bg-tertiary-container/10 px-2 py-1 rounded">PENDING</span>
             </div>

@@ -6,7 +6,7 @@ function Register() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('requester');
+  const [role, setRole] = useState('sales');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
@@ -99,9 +99,8 @@ function Register() {
               onChange={(e) => setRole(e.target.value)}
               className="w-full px-4 py-3 border border-outline-variant rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none bg-white"
             >
-              <option value="requester">Requester</option>
-              <option value="validator">Validator</option>
-              <option value="approver">Approver</option>
+              <option value="sales">Sales</option>
+              <option value="purchasing">Purchasing</option>
               <option value="admin">Admin</option>
             </select>
           </div>

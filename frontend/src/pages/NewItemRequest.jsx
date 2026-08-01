@@ -648,10 +648,10 @@ function NewItemRequest() {
             <section className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6">
               <div className="mb-4 flex items-center gap-2">
                 <span className="material-symbols-outlined scale-75 text-primary">assignment_turned_in</span>
-                <h4 className="font-label-md text-label-md uppercase tracking-wide text-primary">Alur Approval</h4>
+                <h4 className="font-label-md text-label-md uppercase tracking-wide text-primary">Tahap Proses</h4>
               </div>
               <p className="text-body-md text-on-surface-variant">
-                Setelah request dikirim, detail item lengkap termasuk vendor, harga, dan gambar akan tampil di area `Requests` untuk validation dan approval.
+                Setelah request dikirim, detail item lengkap termasuk vendor, harga, dan gambar akan tampil di area `Requests` untuk review purchasing dan konfirmasi akhir.
               </p>
             </section>
 

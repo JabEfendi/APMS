@@ -34,6 +34,12 @@ async function createNewItemRequestTable() {
         attachment_name VARCHAR(255),
         attachment_mime_type VARCHAR(255),
         notes TEXT,
+        status_reason TEXT,
+        progress_notes TEXT,
+        status_id VARCHAR(255),
+        po_process VARCHAR(255),
+        po_number VARCHAR(255),
+        po_date VARCHAR(50),
         status VARCHAR(255) DEFAULT 'validation',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

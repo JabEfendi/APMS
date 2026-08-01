@@ -3,6 +3,7 @@ import axios from 'axios'
 import { Link } from 'react-router-dom'
 import { exportToExcel, exportToCSV } from '../utils/exportFunctions'
 import { useAuth } from '../context/AuthContext'
+import { canAccessInputInquiry, canEditInquiryData, canViewVendorInternal, isSalesRole } from '../utils/rbac'
 
 function RequestList() {
   const [requests, setRequests] = useState([])
@@ -52,50 +53,18 @@ function RequestList() {
     }
   }
 
-  const handleValidate = async (id, action) => {
-    try {
-      await axios.put(`/api/requests/${id}/validate`, { action })
-      loadRequests()
-      loadAllRequests()
-    } catch (err) {
-      console.error(err)
-    }
-  }
-
-  const handleApprove = async (id, action) => {
-    try {
-      await axios.put(`/api/requests/${id}/approve`, { action })
-      loadRequests()
-      loadAllRequests()
-    } catch (err) {
-      console.error(err)
-    }
-  }
-
-  const getStatusColor = (status) => {
+  const getDataStatusColor = (status) => {
     switch (status) {
-      case 'validation':
-        return 'bg-orange-100 text-orange-800'
-      case 'approval':
-        return 'bg-purple-100 text-purple-800'
-      case 'approved':
+      case 'Complete':
         return 'bg-green-100 text-green-800'
-      case 'rejected':
-        return 'bg-red-100 text-red-800'
+      case 'Tidak Complete':
+        return 'bg-orange-100 text-orange-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
   }
 
-  const canValidate = (status) => {
-    if (!user) return false
-    return (user.role === 'validator' || user.role === 'admin') && status === 'validation'
-  }
-
-  const canApprove = (status) => {
-    if (!user) return false
-    return (user.role === 'approver' || user.role === 'admin') && status === 'approval'
-  }
+  const isSalesView = isSalesRole(user?.role)
 
   const formatCompactValue = (value) => {
     if (value === null || value === undefined || value === '') {
@@ -103,6 +72,67 @@ function RequestList() {
     }
 
     return String(value)
+  }
+
+  const getWorkflowLabel = (status) => {
+    switch (status) {
+      case 'validation':
+        return 'Menunggu Review Purchasing'
+      case 'approval':
+        return 'Menunggu Konfirmasi Akhir'
+      case 'approved':
+        return 'Selesai Diproses'
+      case 'rejected':
+        return 'Dikembalikan'
+      default:
+        return 'Draft'
+    }
+  }
+
+  const getWorkflowColor = (status) => {
+    switch (status) {
+      case 'validation':
+        return 'bg-blue-100 text-blue-800'
+      case 'approval':
+        return 'bg-purple-100 text-purple-800'
+      case 'approved':
+        return 'bg-green-100 text-green-800'
+      case 'rejected':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-slate-100 text-slate-700'
+    }
+  }
+
+  const getAgingDays = (request) => {
+    const baseDate = request?.inquiry_date || request?.created_at
+
+    if (!baseDate) {
+      return '-'
+    }
+
+    const parsed = new Date(baseDate)
+    if (Number.isNaN(parsed.getTime())) {
+      return '-'
+    }
+
+    return Math.max(0, Math.floor((Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24)))
+  }
+
+  const getAgingColor = (days) => {
+    if (typeof days !== 'number') {
+      return 'bg-slate-100 text-slate-700'
+    }
+
+    if (days > 3) {
+      return 'bg-red-100 text-red-800'
+    }
+
+    if (days === 3) {
+      return 'bg-yellow-100 text-yellow-800'
+    }
+
+    return 'bg-green-100 text-green-800'
   }
 
   if (loading) {
@@ -120,25 +150,32 @@ function RequestList() {
     <main className="p-margin-edge">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="font-headline-xl text-headline-xl text-primary">Monitoring Permintaan Item Baru</h2>
+          <h2 className="font-headline-xl text-headline-xl text-primary">Monitoring Item Request</h2>
           <p className="mt-1 text-sm text-on-surface-variant">
-            Halaman ini fokus untuk memantau status, validasi, dan approval. Data akan masuk ke sini setelah user membuat `Permintaan Item Baru`, bukan hanya menyimpan inquiry.
+            Halaman ini fokus untuk memantau item request, data status, dan alur review. Data masuk ke sini setelah user menyimpan registrasi item baru atau input item request.
           </p>
         </div>
-        <Link
-          to="/inquiries/new"
-          className="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-lg font-bold hover:bg-primary-container transition-colors"
-        >
-          <span className="material-symbols-outlined">post_add</span>
-          Mulai dari Input Inquiry
-        </Link>
+        {canAccessInputInquiry(user?.role) && (
+          <Link
+            to="/inquiries/new"
+            className="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-lg font-bold hover:bg-primary-container transition-colors"
+          >
+            <span className="material-symbols-outlined">post_add</span>
+            {isSalesView ? 'Input Inquiry' : 'Input Item Request'}
+          </Link>
+        )}
       </div>
 
       <div className="bg-white border border-outline-variant rounded-xl shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low/30">
           <div className="flex items-center gap-4">
-            <span className="text-label-md text-on-surface-variant">Menampilkan <span className="font-bold text-on-surface">{requests.length}</span> dari <span className="font-bold text-on-surface">{total}</span> permintaan</span>
+            <span className="text-label-md text-on-surface-variant">Menampilkan <span className="font-bold text-on-surface">{requests.length}</span> dari <span className="font-bold text-on-surface">{total}</span> item request</span>
             <div className="h-4 w-[1px] bg-outline-variant"></div>
+            {!isSalesView && (
+              <span className="text-xs text-on-surface-variant">
+                Review alur kerja dilakukan dari halaman detail request agar aksi per baris tetap rapi.
+              </span>
+            )}
           </div>
           <div className="flex gap-2">
             <button 
@@ -167,9 +204,9 @@ function RequestList() {
         ) : requests.length === 0 ? (
           <div className="px-6 py-10 text-center">
             <span className="material-symbols-outlined text-4xl text-outline">inbox</span>
-            <p className="mt-3 text-base font-semibold text-on-surface">Belum ada permintaan item baru</p>
+            <p className="mt-3 text-base font-semibold text-on-surface">Belum ada item request</p>
             <p className="mt-2 text-sm text-on-surface-variant">
-              Data akan muncul di halaman ini setelah user menekan `Buat Permintaan Item Baru` dari flow `Input Inquiry`.
+              Data akan muncul di halaman ini setelah user menyimpan registrasi item baru atau input item request.
             </p>
           </div>
         ) : (
@@ -177,79 +214,86 @@ function RequestList() {
             <table className="w-full text-left border-collapse font-data-table text-data-table">
               <thead>
                 <tr className="bg-surface-container-low text-on-surface-variant border-b border-outline-variant">
-                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Request No</th>
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Item Request No</th>
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Inquiry ID</th>
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Sales</th>
                   <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Part No</th>
-                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Part Name</th>
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Nama Part</th>
                   <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Brand</th>
-                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Vendor</th>
-                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">HPP</th>
-                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Status</th>
+                  {canViewVendorInternal(user?.role) && (
+                    <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Vendor</th>
+                  )}
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Selling Price</th>
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Data Status</th>
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Aging Days</th>
+                  <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Tahap Proses</th>
                   <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Tanggal</th>
                   <th className="px-6 py-3 font-bold uppercase tracking-wider whitespace-nowrap">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-outline-variant">
-                {requests.map((request) => (
-                  <tr key={request.id} className="hover:bg-surface-container-low transition-colors">
-                    <td className="px-6 py-4 font-semibold text-primary">{request.request_number}</td>
-                    <td className="px-6 py-4 font-mono">{request.part_no || request.partNumber || '-'}</td>
-                    <td className="px-6 py-4">{request.part_name}</td>
-                    <td className="px-6 py-4">{request.brand}</td>
-                    <td className="px-6 py-4">{formatCompactValue(request.vendor_name)}</td>
-                    <td className="px-6 py-4">{formatCompactValue(request.hpp_idr || request.cost_price || request.atpm_price)}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getStatusColor(request.status)}`}>
-                        {request.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">{request.created_at ? new Date(request.created_at).toLocaleDateString('id-ID') : '-'}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          to={`/requests/${request.id}`}
-                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-outline-variant text-label-md font-medium hover:bg-surface-container transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-sm">visibility</span>
-                          Detail
-                        </Link>
-                        
-                        {canValidate(request.status) && (
-                          <>
-                            <button
-                              onClick={() => handleValidate(request.id, 'approve')}
-                              className="px-3 py-1 bg-green-100 text-green-800 rounded text-xs font-bold hover:bg-green-200 transition-colors"
-                            >
-                              Validate
-                            </button>
-                            <button
-                              onClick={() => handleValidate(request.id, 'reject')}
-                              className="px-3 py-1 bg-red-100 text-red-800 rounded text-xs font-bold hover:bg-red-200 transition-colors"
-                            >
-                              Reject
-                            </button>
-                          </>
-                        )}
+                {requests.map((request) => {
+                  const agingDays = getAgingDays(request)
 
-                        {canApprove(request.status) && (
-                          <>
-                            <button
-                              onClick={() => handleApprove(request.id, 'approve')}
-                              className="px-3 py-1 bg-green-100 text-green-800 rounded text-xs font-bold hover:bg-green-200 transition-colors"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => handleApprove(request.id, 'reject')}
-                              className="px-3 py-1 bg-red-100 text-red-800 rounded text-xs font-bold hover:bg-red-200 transition-colors"
-                            >
-                              Reject
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                  return (
+                    <tr key={request.id} className="hover:bg-surface-container-low transition-colors">
+                      <td className="px-6 py-4 font-semibold text-primary">{request.request_number}</td>
+                      <td className="px-6 py-4 font-semibold">{formatCompactValue(request.inquiry_id)}</td>
+                      <td className="px-6 py-4">{formatCompactValue(request.sales_name)}</td>
+                      <td className="px-6 py-4 font-mono">{request.part_no || request.partNumber || '-'}</td>
+                      <td className="px-6 py-4">{request.part_name}</td>
+                      <td className="px-6 py-4">{request.brand}</td>
+                      {canViewVendorInternal(user?.role) && (
+                        <td className="px-6 py-4">{formatCompactValue(request.vendor_name)}</td>
+                      )}
+                      <td className="px-6 py-4">{formatCompactValue(request.selling_price)}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getDataStatusColor(request.data_status)}`}>
+                          {request.data_status || 'Tidak Complete'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getAgingColor(agingDays)}`}>
+                          {agingDays}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`rounded-full px-2 py-1 text-xs font-bold uppercase ${getWorkflowColor(request.status)}`}>
+                          {getWorkflowLabel(request.status)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">{request.created_at ? new Date(request.created_at).toLocaleDateString('id-ID') : '-'}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            to={`/requests/${request.id}`}
+                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-outline-variant text-label-md font-medium hover:bg-surface-container transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-sm">visibility</span>
+                            Detail
+                          </Link>
+
+                          {canEditInquiryData(user?.role) ? (
+                            request.status === 'approved' ? (
+                              <span className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
+                                <span className="material-symbols-outlined text-sm">lock</span>
+                                Terkunci
+                              </span>
+                            ) : (
+                              <Link
+                                to={`/requests/${request.id}/edit`}
+                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-outline-variant text-label-md font-medium hover:bg-surface-container transition-colors"
+                              >
+                                <span className="material-symbols-outlined text-sm">edit</span>
+                                Edit
+                              </Link>
+                            )
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

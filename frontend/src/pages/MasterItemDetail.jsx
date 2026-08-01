@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
+import { useAuth } from '../context/AuthContext'
+import { canManageMasterItems } from '../utils/rbac'
 
 const sectionConfigs = [
   {
@@ -14,7 +16,9 @@ const sectionConfigs = [
       { label: 'Model', keys: ['Model'] },
       { label: 'Series / Type', keys: ['Series___Type'] },
       { label: 'Year', keys: ['Year'] },
-      { label: 'Data Status', keys: ['Data_Status'] }
+      { label: 'Data Status', keys: ['Data_Status'] },
+      { label: 'Stock Status', keys: ['Stock_Status'] },
+      { label: 'Stock Qty', keys: ['Stock_Qty'] }
     ]
   },
   {
@@ -34,7 +38,8 @@ const sectionConfigs = [
     fields: [
       { label: 'ATPM Price', keys: ['ATPM_PRICE'] },
       { label: 'Cost Price', keys: ['Cost_Price'] },
-      { label: 'HPP (IDR)', keys: ['HPP__IDR_'] }
+      { label: 'HPP (IDR)', keys: ['HPP__IDR_'] },
+      { label: 'Selling Price', keys: ['Selling_Price'] }
     ]
   }
 ]
@@ -83,12 +88,54 @@ function DetailCard({ title, icon, children, className = '' }) {
   )
 }
 
+function MasterItemEditField({ label, name, value, onChange, type = 'text', children, helperText = '' }) {
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-on-surface-variant">{label}</label>
+      {children || (
+        <input
+          type={type}
+          name={name}
+          value={value}
+          onChange={onChange}
+          className="w-full rounded-lg border border-outline-variant px-4 py-2.5"
+        />
+      )}
+      {helperText && <p className="text-xs text-on-surface-variant">{helperText}</p>}
+    </div>
+  )
+}
+
 function MasterItemDetail() {
   const navigate = useNavigate()
   const { id } = useParams()
+  const { user } = useAuth()
   const [item, setItem] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [formMessage, setFormMessage] = useState('')
+  const [formData, setFormData] = useState({
+    dataStatus: '',
+    partNumber: '',
+    partName: '',
+    workshopName: '',
+    brand: '',
+    model: '',
+    seriesType: '',
+    year: '',
+    stockStatus: 'Out of Stock',
+    stockQty: '',
+    vendorId: '',
+    vendorName: '',
+    categoryPart: '',
+    currency: 'IDR',
+    atpmPrice: '',
+    costPrice: '',
+    sellingPrice: '',
+    updateDate: ''
+  })
 
   useEffect(() => {
     const loadItem = async () => {
@@ -97,6 +144,26 @@ function MasterItemDetail() {
         setError('')
         const result = await axios.get(`/api/master-items/${id}`)
         setItem(result.data)
+        setFormData({
+          dataStatus: result.data.Data_Status || '',
+          partNumber: result.data.Int__Part_Number || '',
+          partName: result.data.Part_Name || '',
+          workshopName: result.data.Workshop_Name || '',
+          brand: result.data.Brand || '',
+          model: result.data.Model || '',
+          seriesType: result.data.Series___Type || '',
+          year: result.data.Year || '',
+          stockStatus: result.data.Stock_Status || 'Out of Stock',
+          stockQty: result.data.Stock_Qty || '',
+          vendorId: result.data.Vendor_ID || '',
+          vendorName: result.data.Vendor_Name || '',
+          categoryPart: result.data.Category_Part || '',
+          currency: result.data.Currency || 'IDR',
+          atpmPrice: result.data.ATPM_PRICE || '',
+          costPrice: result.data.Cost_Price || '',
+          sellingPrice: result.data.Selling_Price || '',
+          updateDate: result.data.Update_Date || ''
+        })
       } catch (err) {
         console.error(err)
         setError('Data master item tidak ditemukan atau gagal dimuat.')
@@ -107,6 +174,29 @@ function MasterItemDetail() {
 
     loadItem()
   }, [id])
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleSave = async (e) => {
+    e.preventDefault()
+    setIsSaving(true)
+    setFormMessage('')
+
+    try {
+      const result = await axios.put(`/api/master-items/${id}`, formData)
+      setItem(result.data)
+      setFormMessage('Master item berhasil diperbarui.')
+      setIsEditMode(false)
+    } catch (err) {
+      console.error(err)
+      setFormMessage(err.response?.data?.error || 'Gagal memperbarui master item.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   const trackedKeys = useMemo(() => {
     if (!item) {
@@ -187,6 +277,19 @@ function MasterItemDetail() {
         </div>
 
         <div className="flex flex-wrap gap-3">
+          {canManageMasterItems(user?.role) && (
+            <button
+              type="button"
+              onClick={() => {
+                setFormMessage('')
+                setIsEditMode((prev) => !prev)
+              }}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-label-md font-medium text-white hover:bg-primary-container"
+            >
+              <span className="material-symbols-outlined text-sm">edit</span>
+              {isEditMode ? 'Tutup Edit' : 'Edit Master Item'}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => navigate('/master-items')}
@@ -197,6 +300,68 @@ function MasterItemDetail() {
           </button>
         </div>
       </div>
+
+      {isEditMode && canManageMasterItems(user?.role) && (
+        <DetailCard title="Edit Master Item" icon="edit_square">
+          <form onSubmit={handleSave} className="space-y-4">
+            {formMessage && (
+              <div className="rounded-xl border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
+                {formMessage}
+              </div>
+            )}
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <MasterItemEditField label="Part Number" name="partNumber" value={formData.partNumber} onChange={handleEditChange} />
+              <MasterItemEditField label="Part Name" name="partName" value={formData.partName} onChange={handleEditChange} />
+              <MasterItemEditField label="Workshop Name" name="workshopName" value={formData.workshopName} onChange={handleEditChange} />
+              <MasterItemEditField label="Brand" name="brand" value={formData.brand} onChange={handleEditChange} />
+              <MasterItemEditField label="Model" name="model" value={formData.model} onChange={handleEditChange} />
+              <MasterItemEditField label="Series / Type" name="seriesType" value={formData.seriesType} onChange={handleEditChange} />
+              <MasterItemEditField label="Year" name="year" value={formData.year} onChange={handleEditChange} />
+              <MasterItemEditField label="Data Status" name="dataStatus" value={formData.dataStatus} onChange={handleEditChange} />
+              <MasterItemEditField label="Stock Status" name="stockStatus" value={formData.stockStatus} onChange={handleEditChange}>
+                <select
+                  name="stockStatus"
+                  value={formData.stockStatus}
+                  onChange={handleEditChange}
+                  className="w-full rounded-lg border border-outline-variant px-4 py-2.5"
+                >
+                  <option value="Ready Stock">Ready Stock</option>
+                  <option value="Order">Order</option>
+                  <option value="Out of Stock">Out of Stock</option>
+                </select>
+              </MasterItemEditField>
+              <MasterItemEditField label="Stock Qty" name="stockQty" value={formData.stockQty} onChange={handleEditChange} />
+              <MasterItemEditField label="Vendor ID" name="vendorId" value={formData.vendorId} onChange={handleEditChange} />
+              <MasterItemEditField label="Vendor Name" name="vendorName" value={formData.vendorName} onChange={handleEditChange} />
+              <MasterItemEditField label="Category Part" name="categoryPart" value={formData.categoryPart} onChange={handleEditChange} />
+              <MasterItemEditField label="Currency" name="currency" value={formData.currency} onChange={handleEditChange} />
+              <MasterItemEditField label="ATPM Price" name="atpmPrice" value={formData.atpmPrice} onChange={handleEditChange} />
+              <MasterItemEditField label="Cost Price" name="costPrice" value={formData.costPrice} onChange={handleEditChange} helperText="HPP akan dihitung ulang otomatis dari cost price." />
+              <MasterItemEditField label="Selling Price" name="sellingPrice" value={formData.sellingPrice} onChange={handleEditChange} />
+              <MasterItemEditField label="Update Date" name="updateDate" value={formData.updateDate} onChange={handleEditChange} type="date" />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsEditMode(false)}
+                className="rounded-lg border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-container disabled:opacity-60"
+              >
+                <span className={`material-symbols-outlined text-sm ${isSaving ? 'animate-spin' : ''}`}>
+                  {isSaving ? 'progress_activity' : 'save'}
+                </span>
+                Simpan Perubahan
+              </button>
+            </div>
+          </form>
+        </DetailCard>
+      )}
 
       <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
         <div className="space-y-6">

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
+import { useAuth } from '../context/AuthContext'
+import { canEditInquiryData, canViewSensitivePricing, canViewVendorInternal } from '../utils/rbac'
 
 const sectionConfigs = [
   {
@@ -108,12 +110,59 @@ function DetailCard({ title, icon, children, className = '' }) {
   )
 }
 
+function InquiryEditField({ label, name, value, onChange, className = '', textarea = false, type = 'text', helperText = '' }) {
+  const commonClassName = 'mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5'
+
+  return (
+    <div className={className}>
+      <label className="block text-sm font-medium text-on-surface-variant">{label}</label>
+      {textarea ? (
+        <textarea
+          name={name}
+          value={value}
+          onChange={onChange}
+          rows={4}
+          className={`${commonClassName} py-3`}
+        />
+      ) : (
+        <input
+          type={type}
+          name={name}
+          value={value}
+          onChange={onChange}
+          className={commonClassName}
+        />
+      )}
+      {helperText && <p className="mt-2 text-xs text-on-surface-variant">{helperText}</p>}
+    </div>
+  )
+}
+
 function InquiryDetail() {
   const navigate = useNavigate()
   const { id } = useParams()
+  const { user } = useAuth()
   const [inquiry, setInquiry] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [formMessage, setFormMessage] = useState('')
+  const [formData, setFormData] = useState({
+    inquiryId: '',
+    inquiryDate: '',
+    salesName: '',
+    customer: '',
+    customerType: '',
+    partNo: '',
+    workshopPartName: '',
+    partName: '',
+    brand: '',
+    model: '',
+    year: '',
+    uom: '',
+    progressNotes: ''
+  })
 
   useEffect(() => {
     const loadInquiry = async () => {
@@ -122,6 +171,21 @@ function InquiryDetail() {
         setError('')
         const result = await axios.get(`/api/inquiries/${id}`)
         setInquiry(result.data)
+        setFormData({
+          inquiryId: result.data.Inquiry_ID || '',
+          inquiryDate: result.data.Inquiry_Date || '',
+          salesName: result.data.Sales_Name || '',
+          customer: result.data.Customer_Name || '',
+          customerType: result.data.Customer_Type || '',
+          partNo: result.data.Part_Number || '',
+          workshopPartName: result.data.Workshop_Part_Name || '',
+          partName: result.data.Part_Name || '',
+          brand: result.data.Brand || result.data.Brand_ || '',
+          model: result.data.Model || result.data.Model_ || '',
+          year: result.data.Year || result.data.Year_ || '',
+          uom: result.data.UOM || result.data.UOM_ || '',
+          progressNotes: result.data.Progress_Notes || ''
+        })
       } catch (err) {
         console.error(err)
         setError('Data inquiry tidak ditemukan atau gagal dimuat.')
@@ -133,6 +197,43 @@ function InquiryDetail() {
     loadInquiry()
   }, [id])
 
+  const handleEditChange = (e) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleSave = async (e) => {
+    e.preventDefault()
+    setIsSaving(true)
+    setFormMessage('')
+
+    try {
+      const result = await axios.put(`/api/inquiries/${id}`, formData)
+      setInquiry(result.data)
+      setFormMessage('Inquiry berhasil diperbarui.')
+      setIsEditMode(false)
+    } catch (err) {
+      console.error(err)
+      setFormMessage(err.response?.data?.error || 'Gagal memperbarui inquiry.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const visibleSections = useMemo(() => {
+    return sectionConfigs.filter((section) => {
+      if (section.title === 'Vendor Details') {
+        return canViewVendorInternal(user?.role)
+      }
+
+      if (section.title === 'Detail Harga & Finansial') {
+        return true
+      }
+
+      return true
+    })
+  }, [user])
+
   const trackedKeys = useMemo(() => {
     if (!inquiry) {
       return new Set()
@@ -140,7 +241,7 @@ function InquiryDetail() {
 
     const keys = new Set(['id', 'Progress_Notes'])
 
-    sectionConfigs.forEach((section) => {
+    visibleSections.forEach((section) => {
       section.fields.forEach((field) => {
         const actualKey = findKey(inquiry, field.keys)
         if (actualKey) {
@@ -150,15 +251,29 @@ function InquiryDetail() {
     })
 
     return keys
-  }, [inquiry])
+  }, [inquiry, visibleSections])
 
   const remainingFields = useMemo(() => {
     if (!inquiry) {
       return []
     }
 
-    return Object.entries(inquiry).filter(([key]) => !trackedKeys.has(key))
-  }, [inquiry, trackedKeys])
+    return Object.entries(inquiry).filter(([key]) => {
+      if (trackedKeys.has(key)) {
+        return false
+      }
+
+      if (!canViewVendorInternal(user?.role) && ['Vendor_ID', 'Vendor_Name', 'PROCUREMNT_NAME_FIX', 'PROCUREMNT_NAME_FIX_'].includes(key)) {
+        return false
+      }
+
+      if (!canViewSensitivePricing(user?.role) && ['HPP_', 'HPP', 'Total_HPP', 'ATPM_Price'].includes(key)) {
+        return false
+      }
+
+      return true
+    })
+  }, [inquiry, trackedKeys, user])
 
   if (loading) {
     return (
@@ -214,6 +329,19 @@ function InquiryDetail() {
         </div>
 
         <div className="flex flex-wrap gap-3">
+          {canEditInquiryData(user?.role) && (
+            <button
+              type="button"
+              onClick={() => {
+                setFormMessage('')
+                setIsEditMode((prev) => !prev)
+              }}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-label-md font-medium text-white hover:bg-primary-container"
+            >
+              <span className="material-symbols-outlined text-sm">edit</span>
+              {isEditMode ? 'Tutup Edit' : 'Edit Inquiry'}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => navigate('/inquiries')}
@@ -225,12 +353,105 @@ function InquiryDetail() {
         </div>
       </div>
 
+      {isEditMode && (
+        <section className="rounded-2xl border border-outline-variant bg-white shadow-sm">
+          <div className="border-b border-outline-variant px-5 py-4">
+            <h3 className="text-base font-semibold text-on-surface">Edit Inquiry</h3>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              Form edit sekarang dibagi per bagian supaya jelas field mana yang sedang Anda ubah.
+            </p>
+          </div>
+          <form onSubmit={handleSave} className="space-y-4 p-5">
+            {formMessage && (
+              <div className="rounded-xl border border-outline-variant bg-surface-container-low px-4 py-3 text-sm text-on-surface">
+                {formMessage}
+              </div>
+            )}
+            <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Ringkasan Edit</p>
+              <p className="mt-2 text-sm text-on-surface">
+                Anda sedang mengubah data untuk inquiry <span className="font-semibold">{formData.inquiryId || '-'}</span> milik customer <span className="font-semibold">{formData.customer || '-'}</span>.
+              </p>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-[1.2fr_1.8fr]">
+              <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+                <h4 className="text-sm font-semibold text-on-surface">Informasi Inquiry</h4>
+                <div className="mt-4 space-y-4">
+                  <InquiryEditField label="Inquiry ID" name="inquiryId" value={formData.inquiryId} onChange={handleEditChange} />
+                  <InquiryEditField label="Inquiry Date" name="inquiryDate" value={formData.inquiryDate} onChange={handleEditChange} type="date" />
+                  <InquiryEditField label="Sales Name" name="salesName" value={formData.salesName} onChange={handleEditChange} />
+                  <InquiryEditField label="Customer Name" name="customer" value={formData.customer} onChange={handleEditChange} />
+                  <InquiryEditField label="Customer Type" name="customerType" value={formData.customerType} onChange={handleEditChange} />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+                  <h4 className="text-sm font-semibold text-on-surface">Detail Part</h4>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <InquiryEditField label="Part Number" name="partNo" value={formData.partNo} onChange={handleEditChange} helperText="Kosongkan bila part number belum diketahui." />
+                    <InquiryEditField label="Workshop Part Name" name="workshopPartName" value={formData.workshopPartName} onChange={handleEditChange} />
+                    <InquiryEditField label="Part Name" name="partName" value={formData.partName} onChange={handleEditChange} />
+                    <InquiryEditField label="Brand" name="brand" value={formData.brand} onChange={handleEditChange} />
+                    <InquiryEditField label="Model" name="model" value={formData.model} onChange={handleEditChange} />
+                    <InquiryEditField label="Year" name="year" value={formData.year} onChange={handleEditChange} />
+                    <InquiryEditField label="UOM" name="uom" value={formData.uom} onChange={handleEditChange} />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-outline-variant bg-surface-container-lowest p-4">
+                  <h4 className="text-sm font-semibold text-on-surface">Catatan Progres</h4>
+                  <div className="mt-4">
+                    <InquiryEditField
+                      label="Progress Notes"
+                      name="progressNotes"
+                      value={formData.progressNotes}
+                      onChange={handleEditChange}
+                      textarea
+                      helperText="Gunakan bagian ini untuk menulis perubahan, kendala, atau update terbaru inquiry."
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsEditMode(false)}
+                className="rounded-lg border border-outline-variant px-4 py-2 text-sm font-medium text-on-surface"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-container disabled:opacity-60"
+              >
+                <span className={`material-symbols-outlined text-sm ${isSaving ? 'animate-spin' : ''}`}>
+                  {isSaving ? 'progress_activity' : 'save'}
+                </span>
+                Simpan Perubahan
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
+
       <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
         <div className="space-y-6">
-          {sectionConfigs.slice(0, 2).map((section) => (
+          {visibleSections.slice(0, 2).map((section) => (
             <DetailCard key={section.title} title={section.title} icon={section.icon}>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {section.fields.map((field) => {
+                  if (
+                    section.title === 'Detail Harga & Finansial' &&
+                    !canViewSensitivePricing(user?.role) &&
+                    ['HPP (Unit)', 'Total HPP', 'ATPM Price'].includes(field.label)
+                  ) {
+                    return null
+                  }
+
                   const actualKey = findKey(inquiry, field.keys)
                   const value = actualKey ? inquiry[actualKey] : ''
 
@@ -266,7 +487,7 @@ function InquiryDetail() {
         </div>
 
         <div className="space-y-6">
-          {sectionConfigs.slice(2).map((section) => (
+          {visibleSections.slice(2).map((section) => (
             <DetailCard key={section.title} title={section.title} icon={section.icon}>
               <div className="space-y-4">
                 {section.fields.map((field) => {
