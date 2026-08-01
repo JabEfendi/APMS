@@ -24,7 +24,22 @@ function createEmptyRequestItem() {
     vin: '',
     quantity: 1,
     uom: 'PCS',
-    itemImages: []
+    itemImages: [],
+    dataStatus: 'Tidak Complete',
+    statusReason: '',
+    progressNotes: '',
+    statusId: '',
+    poProcess: '',
+    poNumber: '',
+    poDate: '',
+    vendorId: '',
+    vendorName: '',
+    categoryPart: '',
+    currency: 'IDR',
+    atpmPrice: '',
+    costPrice: '',
+    sellingPrice: '',
+    updateDate: new Date().toISOString().split('T')[0]
   }
 }
 
@@ -82,6 +97,14 @@ function getRequestItemSummary(item = {}) {
     qty,
     imageCount
   }
+}
+
+function getHppPreview(costPrice) {
+  if (!costPrice) {
+    return '-'
+  }
+
+  return costPrice
 }
 
 function InputInquiry() {
@@ -452,7 +475,8 @@ function InputInquiry() {
         await axios.put(`/api/requests/${id}`, payload)
       } else {
         payload.requestItems = requestItems.map((item) => ({
-          ...item
+          ...item,
+          partNo: item.partNumber
         }))
         await axios.post('/api/new-item-request', payload)
       }
@@ -780,6 +804,84 @@ function InputInquiry() {
                           )}
                         </div>
                       </div>
+
+                      {canManagePricing && (
+                        <div className="mt-5 rounded-2xl border border-outline-variant bg-white p-4">
+                          <div className="mb-5 flex items-center gap-2 text-primary">
+                            <span className="material-symbols-outlined">payments</span>
+                            <h3 className="text-base font-semibold">Vendor & Harga Internal Item #{index + 1}</h3>
+                          </div>
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            <div>
+                              <label className="block text-sm font-medium text-on-surface-variant">Vendor ID</label>
+                              <input name="vendorId" value={item.vendorId} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-on-surface-variant">Vendor Name</label>
+                              <input name="vendorName" value={item.vendorName} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-on-surface-variant">Category Part</label>
+                              <input name="categoryPart" value={item.categoryPart} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-on-surface-variant">ATPM Price</label>
+                              <input name="atpmPrice" value={item.atpmPrice} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-on-surface-variant">Cost Price</label>
+                              <input name="costPrice" value={item.costPrice} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-on-surface-variant">HPP</label>
+                              <div className="mt-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2.5 text-sm font-medium text-on-surface">
+                                {getHppPreview(item.costPrice)}
+                              </div>
+                              <p className="mt-2 text-xs text-on-surface-variant">HPP dihitung otomatis dari cost price di backend.</p>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-on-surface-variant">Selling Price</label>
+                              <input name="sellingPrice" value={item.sellingPrice} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-on-surface-variant">Data Status</label>
+                              <select name="dataStatus" value={item.dataStatus} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5">
+                                <option value="Tidak Complete">Tidak Complete</option>
+                                <option value="Complete">Complete</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-on-surface-variant">Update Date</label>
+                              <input type="date" name="updateDate" value={item.updateDate} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" />
+                            </div>
+                            <div className="md:col-span-2 xl:col-span-3">
+                              <label className="block text-sm font-medium text-on-surface-variant">Status Reason</label>
+                              <textarea name="statusReason" value={item.statusReason} onChange={(e) => handleRequestItemChange(index, e)} rows={3} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-3" placeholder="Alasan status complete / tidak complete." />
+                            </div>
+                            <div className="md:col-span-2 xl:col-span-3">
+                              <label className="block text-sm font-medium text-on-surface-variant">Progress Note</label>
+                              <textarea name="progressNotes" value={item.progressNotes} onChange={(e) => handleRequestItemChange(index, e)} rows={4} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-3" placeholder="Catatan progres untuk sales dan purchasing." />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-on-surface-variant">Status ID</label>
+                              <input name="statusId" value={item.statusId} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="Kode status internal" />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-on-surface-variant">PO Process</label>
+                              <input name="poProcess" value={item.poProcess} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="Status proses PO" />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-on-surface-variant">PO Number</label>
+                              <input name="poNumber" value={item.poNumber} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" placeholder="Nomor PO" />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-on-surface-variant">PO Date</label>
+                              <input type="date" name="poDate" value={item.poDate} onChange={(e) => handleRequestItemChange(index, e)} className="mt-2 w-full rounded-lg border border-outline-variant px-4 py-2.5" />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {index === requestItems.length - 1 && (
                         <div className="mt-5 flex justify-center">
                           <button
@@ -800,7 +902,7 @@ function InputInquiry() {
               )}
             </section>
 
-            {canManagePricing && (
+            {canManagePricing && isEditMode && (
               <section className="rounded-2xl border border-outline-variant bg-white p-6 shadow-sm">
                 <div className="mb-6 flex items-center gap-2 text-primary">
                   <span className="material-symbols-outlined">payments</span>
